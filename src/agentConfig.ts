@@ -35,6 +35,8 @@ export class GcpAgentConfiguration {
   imageFamily?: string;
   image?: string;
   machineType: string;
+  subnetwork: string = 'default';
+  disableExternalIp?: boolean;
 
   serviceAccount?: string;
   serviceAccounts?: string[];
@@ -113,6 +115,8 @@ export class GcpAgentConfiguration {
       'zones',
       'image',
       'imageFamily',
+      'subnetwork',
+      'disableExternalIp',
       'machineType',
       'serviceAccount',
       'diskType',

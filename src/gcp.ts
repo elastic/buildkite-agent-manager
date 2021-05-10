@@ -75,6 +75,8 @@ export function getBuildkiteConfig(agentConfig: GcpAgentConfiguration) {
 }
 
 export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfiguration) {
+  const region = zone.substr(0, zone.lastIndexOf('-'));
+
   const config = {
     disks: [
       {
@@ -90,12 +92,15 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
     ],
     networkInterfaces: [
       {
-        accessConfigs: [
-          {
-            type: 'ONE_TO_ONE_NAT',
-            networkTier: 'PREMIUM',
-          },
-        ],
+        subnetwork: `projects/${agentConfig.project}/regions/${region}/subnetworks/${agentConfig.subnetwork}`,
+        accessConfigs: agentConfig.disableExternalIp
+          ? []
+          : [
+              {
+                type: 'ONE_TO_ONE_NAT',
+                networkTier: 'PREMIUM',
+              },
+            ],
       },
     ],
     machineType: agentConfig.machineType,
