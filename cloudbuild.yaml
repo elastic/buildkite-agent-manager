@@ -20,5 +20,5 @@ steps:
       - --filename=k8s
       - --image=gcr.io/$PROJECT_ID/elastic-buildkite-manager:$COMMIT_SHA
       - --location=us-central1
-      - --cluster=kibana-operations
+      - --cluster=kibana-ci
       - --namespace=elastic-buildkite-manager

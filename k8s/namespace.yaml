@@ -10,4 +10,4 @@ metadata:
   name: elastic-buildkite-manager
   namespace: elastic-buildkite-manager
   annotations:
-    iam.gke.io/gcp-service-account: elastic-buildkite-manager@elastic-kibana-184716.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: elastic-buildkite-manager@elastic-kibana-ci.iam.gserviceaccount.com
