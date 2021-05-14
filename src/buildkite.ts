@@ -89,6 +89,10 @@ export class Buildkite {
     return (await this.agentHttp.get(`metrics/queue?name=${encodeURIComponent(queue)}`)).data as AgentMetrics;
   };
 
+  getAllAgentMetrics = async () => {
+    return (await this.agentHttp.get(`metrics`)).data;
+  };
+
   stopAgent = async (agent: Agent) => {
     if (!process.env.DRY_RUN) {
       return await this.http.put(`v2/organizations/elastic/agents/${agent.id}/stop`, { force: false });

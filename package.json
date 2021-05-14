@@ -13,7 +13,7 @@
   },
   "author": "Brian Seeders <brian.seeders@elastic.co>",
   "dependencies": {
-    "@elastic/ecs-winston-format": "^0.2.0",
+    "@elastic/ecs-winston-format": "^1.1.0",
     "@google-cloud/compute": "^2.4.3",
     "@google-cloud/secret-manager": "^3.2.0",
     "@supercharge/promise-pool": "^1.6.0",
