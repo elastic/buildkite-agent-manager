@@ -7,7 +7,7 @@ const GCP_SECRET_MAPPING = {
 
 const getSecret = async (client, id) => {
   const [accessResponse] = await client.accessSecretVersion({
-    name: `projects/261553193300/secrets/${id}/versions/latest`,
+    name: `projects/1003139005402/secrets/${id}/versions/latest`,
   });
 
   return accessResponse?.payload?.data?.toString();
