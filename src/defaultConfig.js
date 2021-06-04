@@ -1,6 +1,6 @@
 module.exports = {
   repoOwner: 'elastic',
   repoName: 'kibana-buildkite',
-  configBranch: 'master',
+  configBranch: 'main',
   configPath: 'agents.json',
 };
