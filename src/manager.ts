@@ -77,6 +77,18 @@ export async function getAllImages(projectId: string, configs: GcpAgentConfigura
   return families as Record<string, string>;
 }
 
+export function isGcpInstanceDisconnectedFromBuildkite(context: ManagerContext, instance: GcpInstance) {
+  const now = new Date().getTime();
+  const created = new Date(instance.metadata.creationTimestamp).getTime();
+
+  if (now - created < 10 * 60 * 1000) {
+    return false;
+  }
+
+  // Agent is at least 10 minutes old, and isn't connected to Buildkite anymore. Consider it gone.
+  return !context.buildkiteAgents.find((a) => instance.metadata.name === a.name);
+}
+
 export function getAgentConfigsToCreate(context: ManagerContext) {
   const toCreate: AgentConfigToCreate[] = [];
   const agents = context.config.gcp.agents;
@@ -88,7 +100,8 @@ export function getAgentConfigsToCreate(context: ManagerContext) {
     const instances = context.gcpInstances.filter(
       (f) =>
         ['PROVISIONING', 'STAGING', 'RUNNING'].includes(f.metadata.status) &&
-        f.metadata.metadata.items.find((i) => i.key === 'buildkite-agent-name' && i.value === agent.name)
+        f.metadata.metadata.items.find((i) => i.key === 'buildkite-agent-name' && i.value === agent.name) &&
+        !isGcpInstanceDisconnectedFromBuildkite(context, f)
     );
     const currentAgents = Math.max(instances.length, queue.agents.total);
 
@@ -157,7 +170,7 @@ export function createPlan(context: ManagerContext) {
 }
 
 export async function createInstances(context: ManagerContext, toCreate: AgentConfigToCreate) {
-  logger.info(`[gcp] Creating ${toCreate.numberToCreate} instances of`, toCreate.config);
+  logger.info(`[gcp] Creating ${toCreate.numberToCreate} instances of ${toCreate.config.queue}`);
 
   try {
     await withPromisePool(25, new Array(toCreate.numberToCreate), async () => {
