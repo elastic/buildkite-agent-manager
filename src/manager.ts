@@ -140,20 +140,33 @@ export function getStoppedInstances(context: ManagerContext) {
   return instances;
 }
 
-// Agents with an instance created by an old version of a config
+// Agents that should be gracefully stopped by sending a stop command to the Buildkite API
 export function getStaleAgents(context: ManagerContext) {
-  const agents = [];
+  const agents = new Set<Agent>();
   for (const agentConfig of context.config.gcp.agents) {
     const hash = agentConfig.hash();
 
-    context.buildkiteAgents
+    const agentsForConfig = context.buildkiteAgents
       .filter((agent) => agent.connection_state === 'connected')
-      .filter((agent) => agent.meta_data?.includes(`queue=${agentConfig.queue}`))
-      .filter((agent) => !agent.meta_data?.includes(`hash=${hash}`))
-      .forEach((agent) => agents.push(agent));
+      .filter((agent) => agent.meta_data?.includes(`queue=${agentConfig.queue}`));
+
+    // Agents with stale configs
+    agentsForConfig.filter((agent) => !agent.meta_data?.includes(`hash=${hash}`)).forEach((agent) => agents.add(agent));
+
+    // Agents that have been online for too long
+    if (agentConfig.gracefulStopAfterMins) {
+      agentsForConfig
+        .filter((agent) => {
+          const start = new Date(agent.created_at).getTime();
+          const now = new Date().getTime();
+
+          return now - start >= agentConfig.gracefulStopAfterMins * 60 * 1000;
+        })
+        .forEach((agent) => agents.add(agent));
+    }
   }
 
-  return agents;
+  return [...agents];
 }
 
 export function createPlan(context: ManagerContext) {

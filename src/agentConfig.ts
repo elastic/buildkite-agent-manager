@@ -51,15 +51,11 @@ export class GcpAgentConfiguration {
   overprovision?: number;
   minimumAgents?: number;
   maximumAgents?: number;
-  // secs Deprecated
-  idleTimeoutSecs?: number;
+
   idleTimeoutMins?: number;
   exitAfterOneJob?: boolean;
-  // secs Deprecated
-  gracefulStopAfterSecs?: number;
+
   gracefulStopAfterMins?: number;
-  // secs Deprecated
-  hardStopAfterSecs?: number;
   hardStopAfterMins?: number;
 
   private zoneBalanceCounter = 0;
