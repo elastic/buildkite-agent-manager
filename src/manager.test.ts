@@ -128,5 +128,21 @@ describe('Manager', () => {
       expect(agents.length).toEqual(1);
       expect(agents[0].id).toEqual('hash-id');
     });
+
+    it('should return stale agents one time when agents match multiple stale criteria', () => {
+      addGcpAgentConfig(
+        context,
+        {
+          gracefulStopAfterMins: 10,
+        },
+        [{ id: 'stale-id', created_at: new Date('2000-01-01T00:00:00').toISOString() }, {}, {}]
+      );
+
+      context.buildkiteAgents[0].meta_data = ['queue=queue', 'hash=out-of-date'];
+
+      const agents = getStaleAgents(context);
+      expect(agents.length).toEqual(1);
+      expect(agents[0].id).toEqual('stale-id');
+    });
   });
 });
