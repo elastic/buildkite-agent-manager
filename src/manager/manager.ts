@@ -147,6 +147,11 @@ export async function run() {
   };
 
   const plan = createPlan(context);
-  // logger.debug('Plan', plan);
+
+  if (process.env.DRY_RUN) {
+    logger.debug('Plan', plan);
+    return;
+  }
+
   await executePlan(context, plan);
 }

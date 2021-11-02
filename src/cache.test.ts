@@ -1,6 +1,7 @@
 import Cache from './cache';
 
 jest.useFakeTimers();
+jest.spyOn(global, 'clearTimeout');
 
 describe('cache', () => {
   let cache;
