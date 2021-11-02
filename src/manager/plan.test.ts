@@ -1,14 +1,16 @@
 import { GcpAgentConfiguration } from '../agentConfig';
 import { Agent } from '../buildkite';
+import { GcpInstance } from '../gcp';
 import { ManagerContext } from './manager';
-import { getStaleAgents } from './plan';
+import { getInstancesToDelete, getStaleAgents } from './plan';
 
 let context: ManagerContext;
 
 const addGcpAgentConfig = (
   context: ManagerContext,
   agentConfig: Partial<GcpAgentConfiguration>,
-  buildkiteAgents: Partial<Agent>[] = []
+  buildkiteAgents: Partial<Agent>[] = [],
+  gcpInstances: Partial<GcpInstance['metadata']>[] = []
 ) => {
   const config = new GcpAgentConfiguration({
     name: 'test-name',
@@ -45,6 +47,30 @@ const addGcpAgentConfig = (
     fullAgent.meta_data.push(`hash=${config.hash()}`);
 
     context.buildkiteAgents.push(fullAgent);
+  }
+
+  for (const gcpInstance of gcpInstances) {
+    const instance: GcpInstance = {
+      metadata: {
+        id: 'machine-id',
+        creationTimestamp: new Date().toISOString(),
+        name: 'test-name',
+        status: 'RUNNING',
+        zone: 'zone',
+        labels: {},
+        machineType: 'machine-type',
+        metadata: {
+          items: [
+            {
+              key: 'buildkite-agent-name',
+              value: config.name,
+            },
+          ],
+        },
+        ...gcpInstance,
+      },
+    };
+    context.gcpInstances.push(instance);
   }
 };
 
@@ -144,6 +170,84 @@ describe('Plan', () => {
       const agents = getStaleAgents(context);
       expect(agents.length).toEqual(1);
       expect(agents[0].id).toEqual('stale-id');
+    });
+  });
+
+  describe('getInstancesToDelete', () => {
+    it('should return no instances when there are none to delete', () => {
+      addGcpAgentConfig(context, {}, [{}, {}], [{}, {}]);
+
+      const instances = getInstancesToDelete(context);
+      expect(instances).toEqual([]);
+    });
+
+    it('should return instances when there are some older than the hard timeout', () => {
+      addGcpAgentConfig(
+        context,
+        {
+          hardStopAfterMins: 5,
+        },
+        [{}, {}],
+        [
+          {
+            creationTimestamp: new Date().toISOString(),
+          },
+          {
+            id: 'old-id',
+            creationTimestamp: new Date(new Date().getTime() - 7 * 60000).toISOString(),
+          },
+        ]
+      );
+
+      const instances = getInstancesToDelete(context);
+      expect(instances.length).toEqual(1);
+      expect(instances[0].metadata.id).toEqual('old-id');
+    });
+
+    it('should return instances when there are stopped ones', () => {
+      addGcpAgentConfig(
+        context,
+        {},
+        [{}, {}],
+        [
+          {},
+          {
+            id: 'stopped-1',
+            status: 'TERMINATED',
+          },
+          {
+            id: 'stopped-2',
+            status: 'TERMINATED',
+          },
+        ]
+      );
+
+      const instances = getInstancesToDelete(context);
+      expect(instances.length).toEqual(2);
+      expect(instances[0].metadata.id).toEqual('stopped-1');
+      expect(instances[1].metadata.id).toEqual('stopped-2');
+    });
+
+    it('should return instances when there are some older 10 minutes and not in buildkite', () => {
+      addGcpAgentConfig(
+        context,
+        {},
+        [{}, {}],
+        [
+          {
+            id: 'old-id',
+            name: 'dne',
+            creationTimestamp: new Date(new Date().getTime() - 11 * 60000).toISOString(),
+          },
+          {
+            creationTimestamp: new Date(new Date().getTime() - 11 * 60000).toISOString(),
+          },
+        ]
+      );
+
+      const instances = getInstancesToDelete(context);
+      expect(instances.length).toEqual(1);
+      expect(instances[0].metadata.id).toEqual('old-id');
     });
   });
 });

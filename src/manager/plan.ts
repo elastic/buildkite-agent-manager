@@ -10,7 +10,7 @@ export interface ExecutionPlan {
   };
 }
 
-export function isGcpInstanceDisconnectedFromBuildkite(context: ManagerContext, instance: GcpInstance) {
+export function isGcpInstanceOrphanedFromBuildkite(context: ManagerContext, instance: GcpInstance) {
   const now = new Date().getTime();
   const created = new Date(instance.metadata.creationTimestamp).getTime();
 
@@ -34,7 +34,7 @@ export function getAgentConfigsToCreate(context: ManagerContext) {
       (f) =>
         ['PROVISIONING', 'STAGING', 'RUNNING'].includes(f.metadata.status) &&
         f.metadata.metadata.items.find((i) => i.key === 'buildkite-agent-name' && i.value === agent.name) &&
-        !isGcpInstanceDisconnectedFromBuildkite(context, f)
+        !isGcpInstanceOrphanedFromBuildkite(context, f)
     );
     const currentAgents = Math.max(instances.length, queue.agents.total);
 
@@ -68,8 +68,44 @@ export function getAgentConfigsToCreate(context: ManagerContext) {
   return toCreate;
 }
 
+export function getInstancesToDelete(context: ManagerContext) {
+  const instances = new Set<GcpInstance>();
+
+  [...getStoppedInstances(context), ...getInstancesOnlineTooLong(context), ...getOrphanedInstances(context)].forEach((instance) =>
+    instances.add(instance)
+  );
+
+  return [...instances];
+}
+
 export function getStoppedInstances(context: ManagerContext) {
   const instances = context.gcpInstances.filter((i) => i.metadata.status === 'TERMINATED');
+  return instances;
+}
+
+export function getInstancesOnlineTooLong(context: ManagerContext) {
+  const instances = new Set<GcpInstance>();
+  const configs = context.config.gcp.agents.filter((config) => config.hardStopAfterMins);
+
+  for (const agentConfig of configs) {
+    context.gcpInstances
+      .filter((instance) =>
+        instance.metadata.metadata.items.find((item) => item.key === 'buildkite-agent-name' && item.value === agentConfig.name)
+      )
+      .filter((instance) => ['PROVISIONING', 'STAGING', 'RUNNING'].includes(instance.metadata.status))
+      .filter((instance) => {
+        const now = new Date().getTime();
+        const created = new Date(instance.metadata.creationTimestamp).getTime();
+        return now - created >= agentConfig.hardStopAfterMins * 60 * 1000;
+      })
+      .forEach((instance) => instances.add(instance));
+  }
+
+  return [...instances];
+}
+
+export function getOrphanedInstances(context: ManagerContext) {
+  const instances = context.gcpInstances.filter((i) => isGcpInstanceOrphanedFromBuildkite(context, i));
   return instances;
 }
 
@@ -105,7 +141,7 @@ export function getStaleAgents(context: ManagerContext) {
 export function createPlan(context: ManagerContext) {
   const plan: ExecutionPlan = {
     gcp: {
-      instancesToDelete: getStoppedInstances(context), // deleted instances and instances past the hard-stop limit
+      instancesToDelete: getInstancesToDelete(context), // deleted instances and instances past the hard-stop limit
       agentConfigsToCreate: getAgentConfigsToCreate(context),
     },
     agentsToStop: getStaleAgents(context), // agents attached to outdated configs, or ones that have reached their configed soft time limit
@@ -113,4 +149,14 @@ export function createPlan(context: ManagerContext) {
   };
 
   return plan;
+}
+
+export function printPlan(plan: ExecutionPlan) {
+  console.log({
+    toDelete: plan.gcp.instancesToDelete?.map((i) => ({
+      name: i.metadata.name,
+      status: i.metadata.status,
+      created: i.metadata.creationTimestamp,
+    })),
+  });
 }

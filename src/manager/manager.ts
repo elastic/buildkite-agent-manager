@@ -2,7 +2,7 @@ import { getConfig, GcpAgentConfiguration, AgentConfiguration } from '../agentCo
 import { createInstance, deleteInstance, GcpInstance, getAllAgentInstances, getImageForFamily } from '../gcp';
 import { Agent, AgentMetrics, Buildkite } from '../buildkite';
 import logger from '../lib/logger';
-import { createPlan, ExecutionPlan } from './plan';
+import { createPlan, ExecutionPlan, printPlan } from './plan';
 import { withPromisePool } from '../lib/withPromisePool';
 
 let buildkite: Buildkite;
@@ -149,7 +149,7 @@ export async function run() {
   const plan = createPlan(context);
 
   if (process.env.DRY_RUN) {
-    logger.debug('Plan', plan);
+    printPlan(plan);
     return;
   }
 
