@@ -3,7 +3,7 @@ require('dotenv').config();
 import express from 'express';
 import bootstrapSecrets from './bootstrapGcpSecrets';
 import logger from './lib/logger';
-import { run } from './manager';
+import { run } from './manager/manager';
 
 const TIME_BETWEEN_RUNS = 30000;
 

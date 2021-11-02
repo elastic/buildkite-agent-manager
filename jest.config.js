@@ -5,4 +5,9 @@ module.exports = {
   collectCoverage: false,
   collectCoverageFrom: ['**/*.{js,ts}', '!**/node_modules/**', '!**/test-payloads/**'],
   coverageDirectory: '../coverage',
+  globals: {
+    'ts-jest': {
+      isolatedModules: true,
+    },
+  },
 };

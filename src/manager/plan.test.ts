@@ -1,6 +1,7 @@
-import { GcpAgentConfiguration } from './agentConfig';
-import { Agent } from './buildkite';
-import { getStaleAgents, ManagerContext } from './manager';
+import { GcpAgentConfiguration } from '../agentConfig';
+import { Agent } from '../buildkite';
+import { ManagerContext } from './manager';
+import { getStaleAgents } from './plan';
 
 let context: ManagerContext;
 
@@ -47,7 +48,7 @@ const addGcpAgentConfig = (
   }
 };
 
-describe('Manager', () => {
+describe('Plan', () => {
   beforeEach(() => {
     context = {
       buildkiteAgents: [],

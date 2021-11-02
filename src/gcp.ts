@@ -61,10 +61,6 @@ export function getBuildkiteConfig(agentConfig: GcpAgentConfiguration) {
     bkConfig['disconnect-after-idle-timeout'] = agentConfig.idleTimeoutMins * 60;
   }
 
-  if (agentConfig.idleTimeoutSecs) {
-    bkConfig['disconnect-after-idle-timeout'] = agentConfig.idleTimeoutSecs;
-  }
-
   if (agentConfig.exitAfterOneJob) {
     bkConfig['disconnect-after-job'] = true;
   }
