@@ -1,4 +1,4 @@
-const Cache = require('./cache').default;
+import Cache from './cache';
 
 jest.useFakeTimers();
 

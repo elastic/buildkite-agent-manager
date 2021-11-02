@@ -39,4 +39,4 @@ export default class Cache {
   };
 }
 
-export const global = new Cache();
+export const globalCache = new Cache();
