@@ -40,21 +40,21 @@
 - GCP Project ID
 - Example: `my-cool-gcp-project-1234`
 
-**zones?**
+**zones**
 
 - Required
 - String[]
 - GCP zones in which to create instances. Will round-robin select one when creating an instance.
 - Example: `["us-central1-a", "us-central1-c", "us-central1-f"]`
 
-**imageFamily?**
+**imageFamily**
 
 - Required if `image` is empty
 - String
 - Specifies the Image Family in GCP to use when creating an instance for this agent. Will use the most recent, non-deprecated image in the family.
 - Examples: `my-custom-image-family`, `ubuntu-2004-lts`
 
-**image?**
+**image**
 
 - Required if `imageFamily` is empty
 - String
