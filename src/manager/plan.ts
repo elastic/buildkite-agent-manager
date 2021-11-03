@@ -3,7 +3,7 @@ import { GcpInstance } from '../gcp';
 import { AgentConfigToCreate, ManagerContext } from './manager';
 
 export interface ExecutionPlan {
-  agentsToStop?: any[];
+  agentsToStop?: Agent[];
   gcp?: {
     instancesToDelete?: GcpInstance[];
     agentConfigsToCreate?: AgentConfigToCreate[];
@@ -157,6 +157,16 @@ export function printPlan(plan: ExecutionPlan) {
       name: i.metadata.name,
       status: i.metadata.status,
       created: i.metadata.creationTimestamp,
+    })),
+    toCreate: plan.gcp.agentConfigsToCreate?.map((c) => ({
+      queue: c.config.queue,
+      numberToCreate: c.numberToCreate,
+      totalDesired: c.totalAgentsDesired,
+    })),
+    toStop: plan.agentsToStop.map((agent) => ({
+      name: agent.name,
+      id: agent.id,
+      metadata: agent.meta_data,
     })),
   });
 }

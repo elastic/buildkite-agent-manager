@@ -2,7 +2,7 @@ import { GcpAgentConfiguration } from '../agentConfig';
 import { Agent } from '../buildkite';
 import { GcpInstance } from '../gcp';
 import { ManagerContext } from './manager';
-import { getInstancesToDelete, getStaleAgents } from './plan';
+import { getAgentConfigsToCreate, getInstancesToDelete, getStaleAgents } from './plan';
 
 let context: ManagerContext;
 
@@ -23,6 +23,22 @@ const addGcpAgentConfig = (
   });
 
   context.config.gcp.agents.push(config);
+  context.buildkiteQueues[config.queue] = {
+    agents: {
+      idle: 0,
+      busy: 0,
+      total: 0,
+    },
+    jobs: {
+      running: 0,
+      scheduled: 0,
+      total: 0,
+      waiting: 0,
+    },
+    organization: {
+      slug: 'org',
+    },
+  };
 
   for (const buildkiteAgent of buildkiteAgents) {
     const fullAgent: Agent = {
@@ -248,6 +264,62 @@ describe('Plan', () => {
       const instances = getInstancesToDelete(context);
       expect(instances.length).toEqual(1);
       expect(instances[0].metadata.id).toEqual('old-id');
+    });
+  });
+
+  describe('getAgentConfigsToCreate', () => {
+    it('should create agents when none are running and a minimum is present', () => {
+      addGcpAgentConfig(context, {
+        minimumAgents: 10,
+      });
+
+      const configs = getAgentConfigsToCreate(context);
+      expect(configs.length).toEqual(1);
+      expect(configs[0].numberToCreate).toEqual(10);
+    });
+
+    it('should create agents when some are needed to fulfill requests', () => {
+      addGcpAgentConfig(context, {});
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.waiting = 100;
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.scheduled = 100;
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.total = 200;
+
+      const configs = getAgentConfigsToCreate(context);
+      expect(configs.length).toEqual(1);
+      expect(configs[0].numberToCreate).toEqual(100);
+    });
+
+    it('should not create more than the maximum number of agents', () => {
+      addGcpAgentConfig(context, { maximumAgents: 10 });
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.waiting = 100;
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.scheduled = 100;
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.total = 200;
+
+      const configs = getAgentConfigsToCreate(context);
+      expect(configs.length).toEqual(1);
+      expect(configs[0].numberToCreate).toEqual(10);
+    });
+
+    it('should not create more agents if some are spinning up or running', () => {
+      addGcpAgentConfig(context, {}, [], [{ status: 'PROVISIONING' }, { status: 'RUNNING' }, { status: 'TERMINATED' }]);
+
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.scheduled = 5;
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.total = 5;
+
+      const configs = getAgentConfigsToCreate(context);
+      expect(configs.length).toEqual(1);
+      expect(configs[0].numberToCreate).toEqual(3);
+    });
+
+    it('should not consider old instances that are not connected to buildkite as currently running', () => {
+      addGcpAgentConfig(context, {}, [], [{ creationTimestamp: new Date(new Date().getTime() - 60 * 60000).toISOString() }]);
+
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.scheduled = 5;
+      context.buildkiteQueues[context.config.gcp.agents[0].queue].jobs.total = 5;
+
+      const configs = getAgentConfigsToCreate(context);
+      expect(configs.length).toEqual(1);
+      expect(configs[0].numberToCreate).toEqual(5);
     });
   });
 });
