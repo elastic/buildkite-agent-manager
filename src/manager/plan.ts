@@ -118,17 +118,17 @@ export function getStaleAgents(context: ManagerContext) {
     const hash = agentConfig.hash();
 
     const agentsForConfig = context.buildkiteAgents
-      .filter((agent) => agent.connection_state === 'connected')
-      .filter((agent) => agent.meta_data?.includes(`queue=${agentConfig.queue}`));
+      .filter((agent) => agent.connectionState === 'connected')
+      .filter((agent) => agent.metaData?.includes(`queue=${agentConfig.queue}`));
 
     // Agents with stale configs
-    agentsForConfig.filter((agent) => !agent.meta_data?.includes(`hash=${hash}`)).forEach((agent) => agents.add(agent));
+    agentsForConfig.filter((agent) => !agent.metaData?.includes(`hash=${hash}`)).forEach((agent) => agents.add(agent));
 
     // Agents that have been online for too long
     if (agentConfig.gracefulStopAfterMins) {
       agentsForConfig
         .filter((agent) => {
-          const start = new Date(agent.created_at).getTime();
+          const start = new Date(agent.createdAt).getTime();
           const now = new Date().getTime();
 
           return now - start >= agentConfig.gracefulStopAfterMins * 60 * 1000;
@@ -168,7 +168,7 @@ export function printPlan(plan: ExecutionPlan) {
     toStop: plan.agentsToStop.map((agent) => ({
       name: agent.name,
       id: agent.id,
-      metadata: agent.meta_data,
+      metadata: agent.metaData,
     })),
   });
 }
