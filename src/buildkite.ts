@@ -102,7 +102,6 @@ export class Buildkite {
 
       const data = await this.graphql.request<AgentsResponse>(request);
       totalCount = totalCount ?? data.organization.agents.count;
-      console.log(JSON.stringify(data, null, 2));
       agentPages.push(data.organization.agents.edges.map(({ node }) => node));
       if (!data.organization.agents.pageInfo.hasNextPage) {
         break;
