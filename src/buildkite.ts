@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { request, gql, GraphQLClient } from 'graphql-request';
 import logger from './lib/logger';
 import parseLinkHeader from './lib/parseLinkHeader';
 
@@ -8,30 +9,32 @@ export interface AgentMetrics {
   organization: { slug: string };
 }
 
+export interface AgentsResponse {
+  organization: {
+    agents: {
+      count: number;
+      pageInfo: {
+        endCursor: string;
+        startCursor: string;
+        hasNextPage: boolean;
+      };
+      edges: [{ node: Agent }];
+    };
+  };
+}
+
 export interface Agent {
   id: string;
-  url: string;
-  web_url: string;
   name: string;
-  connection_state: string;
-  ip_address: string;
-  hostname: string;
-  user_agent: string;
-  version: string;
-  creator: string;
-  created_at: string;
-  job?: {
-    [key: string]: any;
-    // TODO create a separate interface and fill in if we ever need job
-  };
-  last_job_finished_at: string;
-  priority: number;
-  meta_data: string[];
+  connectionState: string;
+  createdAt: string;
+  metaData: string[];
 }
 
 export class Buildkite {
   http: AxiosInstance;
   agentHttp: AxiosInstance;
+  graphql: GraphQLClient;
 
   constructor() {
     const BUILDKITE_BASE_URL = process.env.BUILDKITE_BASE_URL || 'https://api.buildkite.com';
@@ -39,6 +42,9 @@ export class Buildkite {
 
     const BUILDKITE_AGENT_BASE_URL = process.env.BUILDKITE_AGENT_BASE_URL || 'https://agent.buildkite.com/v3';
     const BUILDKITE_AGENT_TOKEN = process.env.BUILDKITE_AGENT_TOKEN;
+
+    const BUILDKITE_GRAPHQL_URL = process.env.BUILDKITE_GRAPHQL_URL || 'https://graphql.buildkite.com/v1';
+    const BUILDKITE_GRAPHQL_TOKEN = process.env.BUILDKITE_GRAPHQL_TOKEN || process.env.BUILDKITE_TOKEN;
 
     this.http = axios.create({
       baseURL: BUILDKITE_BASE_URL,
@@ -53,36 +59,61 @@ export class Buildkite {
         Authorization: `Token ${BUILDKITE_AGENT_TOKEN}`,
       },
     });
+
+    this.graphql = new GraphQLClient(BUILDKITE_GRAPHQL_URL, {
+      headers: {
+        authorization: `Bearer ${BUILDKITE_GRAPHQL_TOKEN}`,
+      },
+    });
   }
 
   getAgents = async (): Promise<Agent[]> => {
     logger.debug('[buildkite] Getting all agents');
 
-    let link = 'v2/organizations/elastic/agents?per_page=100';
-    const agents = [];
-
+    const agentPages: Agent[][] = [];
+    let nextCursor: string = null;
+    let totalCount: number = null;
     // Don't get stuck in an infinite loop or follow more than 50 pages
-    for (let i = 0; i < 50; i++) {
-      if (!link) {
+    for (let i = 0; i < 10; i++) {
+      const nextStr = nextCursor ? `, after:"${nextCursor}"` : '';
+      const request = gql`
+        {
+          organization(slug: "elastic") {
+            agents(first: 500, isRunningJob:true${nextStr}) {
+              count
+              pageInfo {
+                endCursor
+                startCursor
+                hasNextPage
+              }
+              edges {
+                node {
+                  createdAt
+                  hostname
+                  id
+                  connectionState
+                  metaData
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const data = await this.graphql.request<AgentsResponse>(request);
+      totalCount = totalCount ?? data.organization.agents.count;
+      console.log(JSON.stringify(data, null, 2));
+      agentPages.push(data.organization.agents.edges.map(({ node }) => node));
+      if (!data.organization.agents.pageInfo.hasNextPage) {
         break;
       }
 
-      const resp = await this.http.get(link);
-      link = null;
-
-      agents.push(await resp.data);
-
-      if (resp.headers.link) {
-        const result = parseLinkHeader(resp.headers.link as string);
-        if (result?.next) {
-          link = result.next;
-        }
-      }
+      nextCursor = data.organization.agents.pageInfo.endCursor;
     }
 
     logger.debug('[buildkite] Finished getting all agents');
 
-    return agents.flat();
+    return agentPages.flat();
   };
 
   getAgentMetrics = async (queue: string) => {

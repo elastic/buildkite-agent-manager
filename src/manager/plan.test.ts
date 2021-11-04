@@ -43,24 +43,15 @@ const addGcpAgentConfig = (
   for (const buildkiteAgent of buildkiteAgents) {
     const fullAgent: Agent = {
       id: 'test-id',
-      connection_state: 'connected',
-      created_at: new Date().toISOString(),
-      creator: 'creator',
-      hostname: 'agent-hostname',
-      ip_address: '127.0.0.1',
-      last_job_finished_at: '',
-      meta_data: [],
+      connectionState: 'connected',
+      createdAt: new Date().toISOString(),
+      metaData: [],
       name: 'test-name',
-      priority: 0,
-      url: 'http://url',
-      web_url: 'http://web_url',
-      user_agent: 'user-agent',
-      version: '1.0.0',
       ...buildkiteAgent,
     };
 
-    fullAgent.meta_data.push(`queue=${config.queue}`);
-    fullAgent.meta_data.push(`hash=${config.hash()}`);
+    fullAgent.metaData.push(`queue=${config.queue}`);
+    fullAgent.metaData.push(`hash=${config.hash()}`);
 
     context.buildkiteAgents.push(fullAgent);
   }
@@ -114,10 +105,10 @@ describe('Plan', () => {
         },
         [
           {
-            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           },
           {
-            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           },
         ]
       );
@@ -135,17 +126,17 @@ describe('Plan', () => {
         [
           {
             id: 'stale-id-1',
-            created_at: new Date('2000-01-01T00:00:00').toISOString(),
+            createdAt: new Date('2000-01-01T00:00:00').toISOString(),
           },
           {
-            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           },
           {
             id: 'stale-id-2',
-            created_at: new Date('2000-01-01T00:00:00').toISOString(),
+            createdAt: new Date('2000-01-01T00:00:00').toISOString(),
           },
           {
-            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           },
         ]
       );
@@ -165,7 +156,7 @@ describe('Plan', () => {
         [{ id: 'hash-id' }, {}, {}]
       );
 
-      context.buildkiteAgents[0].meta_data = ['queue=queue', 'hash=out-of-date'];
+      context.buildkiteAgents[0].metaData = ['queue=queue', 'hash=out-of-date'];
 
       const agents = getStaleAgents(context);
       expect(agents.length).toEqual(1);
@@ -178,10 +169,10 @@ describe('Plan', () => {
         {
           gracefulStopAfterMins: 10,
         },
-        [{ id: 'stale-id', created_at: new Date('2000-01-01T00:00:00').toISOString() }, {}, {}]
+        [{ id: 'stale-id', createdAt: new Date('2000-01-01T00:00:00').toISOString() }, {}, {}]
       );
 
-      context.buildkiteAgents[0].meta_data = ['queue=queue', 'hash=out-of-date'];
+      context.buildkiteAgents[0].metaData = ['queue=queue', 'hash=out-of-date'];
 
       const agents = getStaleAgents(context);
       expect(agents.length).toEqual(1);
@@ -244,7 +235,8 @@ describe('Plan', () => {
       expect(instances[1].metadata.id).toEqual('stopped-2');
     });
 
-    it('should return instances when there are some older 10 minutes and not in buildkite', () => {
+    // Skipped until/if orphaned instance deletion is re-enabled
+    it.skip('should return instances when there are some older 10 minutes and not in buildkite', () => {
       addGcpAgentConfig(
         context,
         {},
@@ -269,7 +261,9 @@ describe('Plan', () => {
     it('should exclude instances that are being deleted', () => {
       addGcpAgentConfig(
         context,
-        {},
+        {
+          hardStopAfterMins: 5,
+        },
         [{}, {}],
         [
           {
