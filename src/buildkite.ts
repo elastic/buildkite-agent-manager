@@ -89,7 +89,7 @@ export class Buildkite {
               edges {
                 node {
                   createdAt
-                  hostname
+                  name
                   id
                   connectionState
                   metaData
