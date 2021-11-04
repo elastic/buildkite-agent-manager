@@ -71,9 +71,11 @@ export function getAgentConfigsToCreate(context: ManagerContext) {
 export function getInstancesToDelete(context: ManagerContext) {
   const instances = new Set<GcpInstance>();
 
-  [...getStoppedInstances(context), ...getInstancesOnlineTooLong(context), ...getOrphanedInstances(context)].forEach((instance) =>
-    instances.add(instance)
-  );
+  [
+    ...getStoppedInstances(context),
+    ...getInstancesOnlineTooLong(context),
+    //...getOrphanedInstances(context) // Disabled until it can be made more reliable
+  ].forEach((instance) => instances.add(instance));
 
   return [...instances].filter((instance) => ['PROVISIONING', 'STAGING', 'RUNNING', 'TERMINATED'].includes(instance.metadata.status));
 }
