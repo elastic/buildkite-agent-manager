@@ -167,7 +167,7 @@ export function printPlan(plan: ExecutionPlan) {
     })),
     toStop: plan.agentsToStop.map((agent) => ({
       name: agent.name,
-      id: agent.id,
+      id: agent.uuid,
       metadata: agent.metaData,
     })),
   });

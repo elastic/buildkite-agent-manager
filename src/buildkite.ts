@@ -25,6 +25,7 @@ export interface AgentsResponse {
 
 export interface Agent {
   id: string;
+  uuid: string;
   name: string;
   connectionState: string;
   createdAt: string;
@@ -91,6 +92,7 @@ export class Buildkite {
                   createdAt
                   name
                   id
+                  uuid
                   connectionState
                   metaData
                 }
@@ -125,9 +127,9 @@ export class Buildkite {
 
   stopAgent = async (agent: Agent) => {
     if (!process.env.DRY_RUN) {
-      return await this.http.put(`v2/organizations/elastic/agents/${agent.id}/stop`, { force: false });
+      return await this.http.put(`v2/organizations/elastic/agents/${agent.uuid}/stop`, { force: false });
     } else {
-      logger.info(`[buildkite] would stop ${agent.id} / ${agent.name}`);
+      logger.info(`[buildkite] would stop ${agent.uuid} / ${agent.name}`);
     }
   };
 }
