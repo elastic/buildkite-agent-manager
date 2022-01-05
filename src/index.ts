@@ -32,7 +32,7 @@ function sleep(ms) {
       try {
         await run();
       } catch (ex) {
-        logger.error('[app] Error executing run', ex);
+        console.error('[app] Error executing run', ex);
       } finally {
         logger.info(`Finished run`);
       }
