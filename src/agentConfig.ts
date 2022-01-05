@@ -37,6 +37,7 @@ export class GcpAgentConfiguration {
   machineType: string;
   subnetwork: string = 'default';
   disableExternalIp?: boolean;
+  nestedVirtualization = false;
 
   serviceAccount?: string;
   serviceAccounts?: string[];
@@ -124,6 +125,7 @@ export class GcpAgentConfiguration {
       'idleTimeoutSecs',
       'idleTimeoutMins',
       'exitAfterOneJob',
+      'nestedVirtualization',
     ];
 
     const fields = {};

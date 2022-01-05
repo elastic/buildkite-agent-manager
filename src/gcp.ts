@@ -158,6 +158,12 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
     }
   }
 
+  if (agentConfig.nestedVirtualization) {
+    config.minCpuPlatform = 'Intel Haswell';
+    config.advancedMachineFeatures = config.advancedMachineFeatures ?? {};
+    config.advancedMachineFeatures.enableNestedVirtualization = true;
+  }
+
   return config;
 }
 
