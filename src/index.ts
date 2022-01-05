@@ -76,7 +76,7 @@ function sleep(ms) {
       await run();
       process.exit(0);
     } catch (ex) {
-      console.error(ex);
+      console.error(ex.toString());
       process.exit(1);
     }
   }
