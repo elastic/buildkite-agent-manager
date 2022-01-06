@@ -159,7 +159,10 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
   }
 
   if (agentConfig.nestedVirtualization) {
-    config.minCpuPlatform = 'Intel Haswell';
+    // n1 family has CPUs that do not support nested virtualization, but the other families don't
+    if (agentConfig.machineType.startsWith('n1-')) {
+      config.minCpuPlatform = 'Intel Haswell';
+    }
     config.advancedMachineFeatures = config.advancedMachineFeatures ?? {};
     config.advancedMachineFeatures.enableNestedVirtualization = true;
   }
