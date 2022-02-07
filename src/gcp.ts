@@ -167,6 +167,11 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
     config.advancedMachineFeatures.enableNestedVirtualization = true;
   }
 
+  if (agentConfig.spot) {
+    config.scheduling.provisioningModel = 'SPOT';
+    config.scheduling.instanceTerminationAction = 'DELETE';
+  }
+
   return config;
 }
 

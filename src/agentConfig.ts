@@ -59,6 +59,8 @@ export class GcpAgentConfiguration {
   gracefulStopAfterMins?: number;
   hardStopAfterMins?: number;
 
+  spot? = false;
+
   private zoneBalanceCounter = 0;
 
   constructor(config: Partial<GcpAgentConfiguration>) {
