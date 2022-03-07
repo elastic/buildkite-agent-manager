@@ -19,6 +19,8 @@ google.options({
 // the string length of the suffix will be 2*INSTANCE_SUFFIX_BYTES
 export const INSTANCE_SUFFIX_BYTES = 8;
 
+const AGENT_MANAGER_NAME = process.env.AGENT_MANAGER_NAME || 'kibana';
+
 export type GcpInstance = {
   metadata: {
     id: string;
@@ -52,7 +54,7 @@ export type GcpImage = {
 
 export function getBuildkiteConfig(agentConfig: GcpAgentConfiguration) {
   const bkConfig: Record<string, string | number | boolean> = {
-    tags: `queue=${agentConfig.queue},hash=${agentConfig.hash()},agent-manager=${process.env.AGENT_MANAGER_NAME || 'kibana'}`,
+    tags: `queue=${agentConfig.queue},hash=${agentConfig.hash()},agent-manager=${AGENT_MANAGER_NAME}`,
     name: '%hostname',
     'build-path': '/var/lib/buildkite-agent/builds',
   };
@@ -104,12 +106,17 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
     labels: {
       'buildkite-agent': 'true',
       'buildkite-agent-name': agentConfig.name,
+      'agent-manager': AGENT_MANAGER_NAME,
     },
     metadata: {
       items: [
         {
           key: 'buildkite-agent',
           value: 'true',
+        },
+        {
+          key: 'agent-manager',
+          value: AGENT_MANAGER_NAME,
         },
         {
           key: 'buildkite-agent-name',
