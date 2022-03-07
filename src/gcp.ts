@@ -52,7 +52,7 @@ export type GcpImage = {
 
 export function getBuildkiteConfig(agentConfig: GcpAgentConfiguration) {
   const bkConfig: Record<string, string | number | boolean> = {
-    tags: `queue=${agentConfig.queue},hash=${agentConfig.hash()}`,
+    tags: `queue=${agentConfig.queue},hash=${agentConfig.hash()},agent-manager=${process.env.AGENT_MANAGER_NAME || 'kibana'}`,
     name: '%hostname',
     'build-path': '/var/lib/buildkite-agent/builds',
   };
