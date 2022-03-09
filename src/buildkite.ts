@@ -80,7 +80,7 @@ export class Buildkite {
       const request = gql`
         {
           organization(slug: "elastic") {
-            agents(first: 500, isRunningJob:true${nextStr}) {
+            agents(first: 500, metaData:["agent-manager=${process.env.AGENT_MANAGER_NAME || 'kibana'}"], isRunningJob:true${nextStr}) {
               count
               pageInfo {
                 endCursor
