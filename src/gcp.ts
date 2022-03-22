@@ -3,6 +3,7 @@ import Compute from '@google-cloud/compute';
 import { google } from 'googleapis';
 import { GcpAgentConfiguration, GcpTopLevelConfig } from './agentConfig';
 import logger from './lib/logger';
+import { getZone, PreemptionsResult } from './spot';
 
 const compute = new Compute();
 // ImageFamily fetching isn't included in @google-cloud/compute
@@ -182,8 +183,23 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
   return config;
 }
 
-export async function createInstance(agentConfig: GcpAgentConfiguration) {
-  const zone = agentConfig.getNextZone();
+export async function createInstance(agentConfig: GcpAgentConfiguration, preemptions: PreemptionsResult = null) {
+  let zone: string;
+
+  // Disable spot altogether for this agent if we've had too many preemptions recently
+  if (agentConfig.spot) {
+    const totalPreemptions = preemptions ? Object.values(preemptions).reduce((a, b) => a + b, 0) : 0;
+    if (totalPreemptions >= 50) {
+      agentConfig.spot = false;
+    }
+  }
+
+  if (agentConfig.spot && preemptions) {
+    zone = getZone(agentConfig.zones, preemptions);
+  } else {
+    zone = agentConfig.getNextZone();
+  }
+
   const vm = compute.zone(zone).vm(`${agentConfig.name}-${crypto.randomBytes(INSTANCE_SUFFIX_BYTES).toString('hex')}`);
   const config = createVmConfiguration(zone, agentConfig);
 
