@@ -35,9 +35,9 @@ describe('spot', () => {
     it('should return equal zone weighting if the preemptions are all equal', () => {
       const zones = ['zone-1', 'zone-2', 'zone-3'];
       const preemptions = {
-        'zone-1': 5,
-        'zone-2': 5,
-        'zone-3': 5,
+        'zone-1': 4,
+        'zone-2': 4,
+        'zone-3': 4,
       };
 
       const zoneWeightings = getZoneWeighting(zones, preemptions);
@@ -83,7 +83,7 @@ describe('spot', () => {
     const w = getZoneWeighting(zones, {
       'zone-a': 1,
       'zone-b': 3,
-      'zone-c': 6,
+      'zone-c': 4,
     });
 
     const values = {};
