@@ -55,7 +55,6 @@ export type GcpImage = {
 
 export function getBuildkiteConfig(agentConfig: GcpAgentConfiguration) {
   const bkConfig: Record<string, string | number | boolean> = {
-    tags: `queue=${agentConfig.queue},hash=${agentConfig.hash()},agent-manager=${AGENT_MANAGER_NAME}`,
     name: '%hostname',
     'build-path': '/var/lib/buildkite-agent/builds',
   };
@@ -67,6 +66,21 @@ export function getBuildkiteConfig(agentConfig: GcpAgentConfiguration) {
   if (agentConfig.exitAfterOneJob) {
     bkConfig['disconnect-after-job'] = true;
   }
+
+  const tags: Record<string, any> = {
+    queue: agentConfig.queue,
+    hash: agentConfig.hash(),
+    'agent-manager': AGENT_MANAGER_NAME,
+  };
+
+  if (agentConfig.spot) {
+    tags.spot = true;
+  }
+
+  // { key: val } => `key=val,key=val`
+  bkConfig.tags = Object.keys(tags)
+    .map((key) => `${key}=${tags[key]}`)
+    .join(',');
 
   return Object.keys(bkConfig)
     .map((key) => `${key}="${bkConfig[key].toString()}"`)
