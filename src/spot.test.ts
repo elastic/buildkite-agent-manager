@@ -82,8 +82,7 @@ describe('spot', () => {
 
     const w = getZoneWeighting(zones, {
       'zone-a': 1,
-      'zone-b': 3,
-      'zone-c': 4,
+      'zone-b': 4,
     });
 
     const values = {};
@@ -102,6 +101,5 @@ describe('spot', () => {
     expect(values['zone-d']).toBeGreaterThan(values['zone-a']);
     expect(values['zone-e']).toBeGreaterThan(values['zone-a']);
     expect(values['zone-a']).toBeGreaterThan(values['zone-b']);
-    expect(values['zone-b']).toBeGreaterThan(values['zone-c']);
   });
 });
