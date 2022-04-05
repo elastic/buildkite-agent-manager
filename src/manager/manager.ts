@@ -38,6 +38,7 @@ function withTimeout<T>(timeoutSeconds: number, promise: Promise<T>): Promise<T>
 }
 
 export async function getAllQueues(configs: GcpAgentConfiguration[]) {
+  logger.info('[buildkite] Getting all agent queue data');
   const queueSet = new Set<string>();
   for (const config of configs) {
     queueSet.add(config.queue);
@@ -49,16 +50,18 @@ export async function getAllQueues(configs: GcpAgentConfiguration[]) {
   for (const key in queues) {
     queuesByKey[queues[key]] = results[key];
   }
-
+  logger.info('[buildkite] Finished getting all agent queue data');
   return queuesByKey;
 }
 
 export async function getAllImages(projectId: string, configs: GcpAgentConfiguration[]) {
+  logger.info('[gcp] Getting all images from families');
   const uniqueFamilies = [...new Set(configs.map((c) => c.imageFamily).filter((f) => f))];
   const families = {};
   for (const family of uniqueFamilies) {
     families[family] = (await getImageForFamily(projectId, family)).name;
   }
+  logger.info('[gcp] Finished getting all images from families');
 
   return families as Record<string, string>;
 }
