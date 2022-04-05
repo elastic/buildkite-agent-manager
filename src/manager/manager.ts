@@ -4,7 +4,7 @@ import { Agent, AgentMetrics, Buildkite } from '../buildkite';
 import logger from '../lib/logger';
 import { createPlan, ExecutionPlan, printPlan } from './plan';
 import { withPromisePool } from '../lib/withPromisePool';
-import { getPreemptionsWithCache, getResourceExhaustionsWithCache, MetricsResult } from '../spot';
+import { getPreemptionsWithCache, getResourceExhaustionsWithCache, getZoneWeightingFromMetrics, MetricsResult } from '../spot';
 
 let buildkite: Buildkite;
 
@@ -65,6 +65,13 @@ export async function getAllImages(projectId: string, configs: GcpAgentConfigura
 
 export async function createInstances(context: ManagerContext, toCreate: AgentConfigToCreate) {
   logger.info(`[gcp] Creating ${toCreate.numberToCreate} instances of ${toCreate.config.queue}`);
+  if (toCreate.config.spot) {
+    const weighting = getZoneWeightingFromMetrics(toCreate.config.zones, context.preemptions, context.resourceExhaustions);
+    const weightingString = Object.keys(weighting)
+      .map((k) => `[${k}:${weighting[k]}]`)
+      .join(', ');
+    logger.info(`[gcp] With current weighting: ${weightingString}`);
+  }
 
   try {
     await withPromisePool(25, new Array(toCreate.numberToCreate), async () => {

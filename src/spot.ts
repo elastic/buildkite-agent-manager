@@ -155,7 +155,7 @@ export function pickZone(zoneWeighting: ZoneWeighting) {
   return Object.keys(zoneWeighting).reverse()[0];
 }
 
-export function getZone(zones: string[], preemptions: MetricsResult, resourceExhaustions: MetricsResult) {
+export function getZoneWeightingFromMetrics(zones: string[], preemptions: MetricsResult, resourceExhaustions: MetricsResult) {
   const zoneScores: ZoneScores = {};
   for (const set of [preemptions, resourceExhaustions]) {
     for (const zone in set) {
@@ -164,6 +164,10 @@ export function getZone(zones: string[], preemptions: MetricsResult, resourceExh
     }
   }
 
-  const zoneWeighting = getZoneWeighting(zones, zoneScores);
+  return getZoneWeighting(zones, zoneScores);
+}
+
+export function getZone(zones: string[], preemptions: MetricsResult, resourceExhaustions: MetricsResult) {
+  const zoneWeighting = getZoneWeightingFromMetrics(zones, preemptions, resourceExhaustions);
   return pickZone(zoneWeighting);
 }
