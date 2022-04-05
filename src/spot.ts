@@ -1,6 +1,7 @@
 import monitoring from '@google-cloud/monitoring';
 
 import { globalCache } from './cache';
+import logger from './lib/logger';
 
 const client = new monitoring.MetricServiceClient();
 
@@ -68,7 +69,10 @@ export async function getLoggingMetrics(projectId: string, metricType: string, s
 }
 
 export async function getPreemptionsWithCache(projectId: string, sinceNumberOfMinutes: number = 30): Promise<MetricsResult> {
-  return getLoggingMetricsWithCache(projectId, 'instance-preemptions', sinceNumberOfMinutes);
+  logger.info('[gcp] Getting preemption metrics');
+  const data = await getLoggingMetricsWithCache(projectId, 'instance-preemptions', sinceNumberOfMinutes);
+  logger.info('[gcp] Finishing getting preemption metrics');
+  return data;
 }
 
 export async function getPreemptions(projectId: string, sinceNumberOfMinutes: number = 30) {
@@ -76,7 +80,10 @@ export async function getPreemptions(projectId: string, sinceNumberOfMinutes: nu
 }
 
 export async function getResourceExhaustionsWithCache(projectId: string, sinceNumberOfMinutes: number = 30): Promise<MetricsResult> {
-  return getLoggingMetricsWithCache(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
+  logger.info('[gcp] Getting resource exhaustion metrics');
+  const data = await getLoggingMetricsWithCache(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
+  logger.info('[gcp] Finished getting resource exhaustion metrics');
+  return data;
 }
 
 export async function getResourceExhaustions(projectId: string, sinceNumberOfMinutes: number = 30) {

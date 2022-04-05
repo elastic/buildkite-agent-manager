@@ -188,7 +188,7 @@ export async function getConfig() {
       defaultConfig.configPath || '.ci/buildkite-agents.json'
     }`;
 
-    logger.debug(`[github] Fetching remote agent config from ${url}`);
+    logger.info(`[github] Fetching remote agent config from ${url}`);
     remoteConfig = (await axios.get(url, { timeout: 10000 })).data;
     LAST_SUCCESSFUL_CONFIG = remoteConfig;
   } catch (ex) {
@@ -197,7 +197,7 @@ export async function getConfig() {
     logger.error(ex);
   }
 
-  logger.debug(`[github] Done fetching remote agent config`);
+  logger.info(`[github] Done fetching remote agent config`);
 
   if (!remoteConfig) {
     throw Error("Couldn't fetch agent configuration");

@@ -69,7 +69,7 @@ export class Buildkite {
   }
 
   getAgents = async (): Promise<Agent[]> => {
-    logger.debug('[buildkite] Getting all agents');
+    logger.info('[buildkite] Getting all agents');
 
     const agentPages: Agent[][] = [];
     let nextCursor: string = null;
@@ -112,7 +112,7 @@ export class Buildkite {
       nextCursor = data.organization.agents.pageInfo.endCursor;
     }
 
-    logger.debug('[buildkite] Finished getting all agents');
+    logger.info('[buildkite] Finished getting all agents');
 
     return agentPages.flat();
   };

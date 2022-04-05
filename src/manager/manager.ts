@@ -126,7 +126,7 @@ export async function run() {
   buildkite = buildkite || new Buildkite(); // TODO make this better
   const config = await getConfig();
 
-  logger.debug('[manager] Gathering data for current state');
+  logger.info('[manager] Gathering data for current state');
   const promise = Promise.all([
     buildkite.getAgents(),
     getAllAgentInstances(config.gcp),
@@ -139,7 +139,7 @@ export async function run() {
     60,
     promise
   );
-  logger.debug('[manager] Finished gathering data for current state');
+  logger.info('[manager] Finished gathering data for current state');
 
   config.gcp.agents.forEach((agent) => {
     if (agent.imageFamily && !agent.image) {

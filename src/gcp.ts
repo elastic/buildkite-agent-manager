@@ -230,9 +230,9 @@ export async function createInstance(
 }
 
 export async function getAllAgentInstances(gcpConfig: GcpTopLevelConfig) {
-  logger.debug('[gcp] Getting all instances');
+  logger.info('[gcp] Getting all instances');
   const vms = await compute.getVMs({ filter: `(labels.buildkite-agent=true) AND (labels.agent-manager="${AGENT_MANAGER_NAME}")` });
-  logger.debug('[gcp] Finished getting all instances');
+  logger.info('[gcp] Finished getting all instances');
 
   return vms[0] as GcpInstance[];
 }
