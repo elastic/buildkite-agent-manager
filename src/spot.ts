@@ -4,7 +4,8 @@ import { globalCache } from './cache';
 
 const client = new monitoring.MetricServiceClient();
 
-export type PreemptionsResult = Record<string, number>;
+export type MetricsResult = Record<string, number>;
+export type ZoneScores = Record<string, number>;
 export type ZoneWeighting = Record<string, number>;
 
 // The listed regions here are much cheaper than all of the other regions
@@ -17,21 +18,25 @@ export const DEFAULT_REGION_SCORES = {
   'asia-south2': 0,
 };
 
-export async function getPreemptionsWithCache(projectId: string, sinceNumberOfMinutes: number = 30): Promise<PreemptionsResult> {
-  const cacheKey = `preemptions-${projectId}-${sinceNumberOfMinutes}`;
-  let preemptions: PreemptionsResult;
+export async function getLoggingMetricsWithCache(
+  projectId: string,
+  metricType: string,
+  sinceNumberOfMinutes: number = 30
+): Promise<MetricsResult> {
+  const cacheKey = `${metricType}-${projectId}-${sinceNumberOfMinutes}`;
+  let metrics: MetricsResult;
   try {
-    preemptions = await getPreemptions(projectId, sinceNumberOfMinutes);
-    globalCache.set(cacheKey, preemptions, 60 * 10);
+    metrics = await getLoggingMetrics(projectId, metricType, sinceNumberOfMinutes);
+    globalCache.set(cacheKey, metrics, 60 * 10);
   } catch (ex: any) {
     console.error(ex.toString());
   }
 
-  return preemptions ?? globalCache.get(cacheKey);
+  return metrics ?? globalCache.get(cacheKey);
 }
 
-export async function getPreemptions(projectId: string, sinceNumberOfMinutes: number = 30) {
-  const filter = 'metric.type="logging.googleapis.com/user/instance-preemptions"';
+export async function getLoggingMetrics(projectId: string, metricType: string, sinceNumberOfMinutes: number = 30) {
+  const filter = `metric.type="logging.googleapis.com/user/${metricType}"`;
 
   const request = {
     name: client.projectPath(projectId),
@@ -44,11 +49,10 @@ export async function getPreemptions(projectId: string, sinceNumberOfMinutes: nu
         seconds: Date.now() / 1000,
       },
     },
-    // view:
   };
 
   const [timeSeries] = await client.listTimeSeries(request);
-  const results: PreemptionsResult = {};
+  const results: MetricsResult = {};
 
   timeSeries.forEach((data) => {
     const zone = data.resource.labels.zone;
@@ -63,14 +67,30 @@ export async function getPreemptions(projectId: string, sinceNumberOfMinutes: nu
   return results;
 }
 
+export async function getPreemptionsWithCache(projectId: string, sinceNumberOfMinutes: number = 30): Promise<MetricsResult> {
+  return getLoggingMetricsWithCache(projectId, 'instance-preemptions', sinceNumberOfMinutes);
+}
+
+export async function getPreemptions(projectId: string, sinceNumberOfMinutes: number = 30) {
+  return getLoggingMetrics(projectId, 'instance-preemptions', sinceNumberOfMinutes);
+}
+
+export async function getResourceExhaustionsWithCache(projectId: string, sinceNumberOfMinutes: number = 30): Promise<MetricsResult> {
+  return getLoggingMetricsWithCache(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
+}
+
+export async function getResourceExhaustions(projectId: string, sinceNumberOfMinutes: number = 30) {
+  return getLoggingMetrics(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
+}
+
 // This is a pretty confusing algorithm to follow... look at the tests for some example numbers which should help show what it's doing
-export function getZoneWeighting(requestedZones: string[], preemptions: PreemptionsResult) {
+export function getZoneWeighting(requestedZones: string[], zoneScores: ZoneScores) {
   let maxScore = 0;
   const zoneWeightings: Record<string, any> = {};
 
   // Don't use any zones that have had 5 preemptions or more in the time window
   const zones = requestedZones.filter((zone) => {
-    return !preemptions[zone] || preemptions[zone] < 5;
+    return !zoneScores[zone] || zoneScores[zone] < 5;
   });
 
   // Only use region scores if one of the zones is an overridden one
@@ -83,10 +103,10 @@ export function getZoneWeighting(requestedZones: string[], preemptions: Preempti
 
     // Initial score for each zone is preemptions + default region score + 1
     // The +1 is mostly to make the math work.. It doesn't work if there are 0s
-    const score = (preemptions[zone] ?? 0) + 1 + regionScore;
+    const score = (zoneScores[zone] ?? 0) + 1 + regionScore;
     const zoneWrapped = {
       zone: zone,
-      preemptions: preemptions[zone] ?? 0,
+      preemptions: zoneScores[zone] ?? 0,
       score: score,
       weighting: 0,
     };
@@ -128,7 +148,15 @@ export function pickZone(zoneWeighting: ZoneWeighting) {
   return Object.keys(zoneWeighting).reverse()[0];
 }
 
-export function getZone(zones: string[], preemptions: PreemptionsResult) {
-  const zoneWeighting = getZoneWeighting(zones, preemptions);
+export function getZone(zones: string[], preemptions: MetricsResult, resourceExhaustions: MetricsResult) {
+  const zoneScores: ZoneScores = {};
+  for (const set of [preemptions, resourceExhaustions]) {
+    for (const zone in set) {
+      zoneScores[zone] = zoneScores[zone] ?? 0;
+      zoneScores[zone] += set[zone];
+    }
+  }
+
+  const zoneWeighting = getZoneWeighting(zones, zoneScores);
   return pickZone(zoneWeighting);
 }

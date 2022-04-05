@@ -4,7 +4,7 @@ import { Agent, AgentMetrics, Buildkite } from '../buildkite';
 import logger from '../lib/logger';
 import { createPlan, ExecutionPlan, printPlan } from './plan';
 import { withPromisePool } from '../lib/withPromisePool';
-import { getPreemptionsWithCache, PreemptionsResult } from '../spot';
+import { getPreemptionsWithCache, getResourceExhaustionsWithCache, MetricsResult } from '../spot';
 
 let buildkite: Buildkite;
 
@@ -13,7 +13,8 @@ export interface ManagerContext {
   buildkiteAgents: Agent[];
   buildkiteQueues: Record<string, AgentMetrics>;
   gcpInstances: GcpInstance[];
-  preemptions?: PreemptionsResult;
+  preemptions?: MetricsResult;
+  resourceExhaustions?: MetricsResult;
 }
 
 export interface AgentConfigToCreate {
@@ -67,7 +68,7 @@ export async function createInstances(context: ManagerContext, toCreate: AgentCo
 
   try {
     await withPromisePool(25, new Array(toCreate.numberToCreate), async () => {
-      await createInstance(toCreate.config, context.preemptions);
+      await createInstance(toCreate.config, context.preemptions, context.resourceExhaustions);
       return true;
     });
   } finally {
@@ -132,8 +133,12 @@ export async function run() {
     getAllQueues(config.gcp.agents),
     getAllImages(config.gcp.project, config.gcp.agents),
     getPreemptionsWithCache(config.gcp.project),
+    getResourceExhaustionsWithCache(config.gcp.project),
   ]);
-  const [agents, instances, queues, imagesFromFamilies, preemptions] = await withTimeout<Unwrap<typeof promise>>(60, promise);
+  const [agents, instances, queues, imagesFromFamilies, preemptions, resourceExhaustions] = await withTimeout<Unwrap<typeof promise>>(
+    60,
+    promise
+  );
   logger.debug('[manager] Finished gathering data for current state');
 
   config.gcp.agents.forEach((agent) => {
@@ -148,6 +153,7 @@ export async function run() {
     gcpInstances: instances,
     buildkiteQueues: queues,
     preemptions: preemptions,
+    resourceExhaustions: resourceExhaustions,
   };
 
   const plan = createPlan(context);
