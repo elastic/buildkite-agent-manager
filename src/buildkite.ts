@@ -4,8 +4,32 @@ import logger from './lib/logger';
 import parseLinkHeader from './lib/parseLinkHeader';
 
 export interface AgentMetrics {
-  agents: { idle: number; busy: number; total: number };
-  jobs: { scheduled: number; running: number; waiting: number; total: number };
+  agents: {
+    idle: number;
+    busy: number;
+    total: number;
+    queues?: {
+      [key: string]: {
+        idle: number;
+        busy: number;
+        total: number;
+      };
+    };
+  };
+  jobs: {
+    scheduled: number;
+    running: number;
+    waiting: number;
+    total: number;
+    queues?: {
+      [key: string]: {
+        scheduled: number;
+        running: number;
+        waiting: number;
+        total: number;
+      };
+    };
+  };
   organization: { slug: string };
 }
 

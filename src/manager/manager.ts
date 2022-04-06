@@ -45,11 +45,25 @@ export async function getAllQueues(configs: GcpAgentConfiguration[]) {
   }
 
   const queues = [...queueSet];
-  const results = await Promise.all(queues.map((queue) => buildkite.getAgentMetrics(queue)));
+
+  const metrics = await buildkite.getAllAgentMetrics();
   const queuesByKey = {} as Record<string, AgentMetrics>;
-  for (const key in queues) {
-    queuesByKey[queues[key]] = results[key];
+  for (const queue of queues) {
+    queuesByKey[queue] = {
+      organization: metrics.organization,
+      agents: { busy: 0, idle: 0, total: 0 },
+      jobs: { running: 0, scheduled: 0, waiting: 0, total: 0 },
+    };
+
+    if (metrics.agents.queues?.[queue]) {
+      queuesByKey[queue].agents = metrics.agents.queues[queue];
+    }
+
+    if (metrics.jobs.queues?.[queue]) {
+      queuesByKey[queue].jobs = metrics.jobs.queues[queue];
+    }
   }
+
   logger.info('[buildkite] Finished getting all agent queue data');
   return queuesByKey;
 }
