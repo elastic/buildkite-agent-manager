@@ -48,6 +48,7 @@ export class GcpAgentConfiguration {
   startupScript?: string;
   tags?: string[];
   metadata?: Record<string, string>;
+  buildPath?: string;
 
   overprovision?: number;
   minimumAgents?: number;

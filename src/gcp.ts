@@ -56,7 +56,7 @@ export type GcpImage = {
 export function getBuildkiteConfig(agentConfig: GcpAgentConfiguration) {
   const bkConfig: Record<string, string | number | boolean> = {
     name: '%hostname',
-    'build-path': '/var/lib/buildkite-agent/builds',
+    'build-path': agentConfig.buildPath ? agentConfig.buildPath : '/var/lib/buildkite-agent/builds',
   };
 
   if (agentConfig.idleTimeoutMins) {
