@@ -75,6 +75,63 @@ describe('spot', () => {
         'zone-3': 0.333,
       });
     });
+
+    it('should filter out zones past the cutoff', () => {
+      const zones = ['zone-1', 'zone-2', 'zone-3', 'zone-4'];
+      const preemptions = {
+        'zone-1': 1,
+        'zone-2': 1,
+        'zone-3': 1,
+        'zone-4': 1000,
+      };
+
+      const zoneWeightings = getZoneWeighting(zones, preemptions);
+      expect(zoneWeightings).toEqual({
+        'zone-1': 0.333,
+        'zone-2': 0.333,
+        'zone-3': 0.333,
+      });
+    });
+
+    it('should pick the best 3 zones if they all get filtered out', () => {
+      const zones = ['zone-1', 'zone-2', 'zone-3', 'zone-4', 'zone-5', 'zone-6', 'zone-7'];
+      const preemptions = {
+        'zone-1': 999,
+        'zone-2': 1000,
+        'zone-3': 1000,
+        'zone-4': 1000,
+        'zone-5': 999,
+        'zone-6': 1000,
+        'zone-7': 999,
+      };
+
+      const zoneWeightings = getZoneWeighting(zones, preemptions);
+      expect(zoneWeightings).toEqual({
+        'zone-1': 0.333,
+        'zone-5': 0.333,
+        'zone-7': 0.333,
+      });
+    });
+
+    it('should pick the best 3 zones if too many get filtered out', () => {
+      const zones = ['zone-1', 'zone-2', 'zone-3', 'zone-4', 'zone-5', 'zone-6', 'zone-7'];
+      const preemptions = {
+        'zone-1': 1,
+        'zone-2': 1000,
+        'zone-3': 1000,
+        'zone-4': 1000,
+        'zone-5': 500,
+        'zone-6': 1000,
+        'zone-7': 500,
+      };
+
+      const zoneWeightings = getZoneWeighting(zones, preemptions);
+      expect(zoneWeightings).toEqual({
+        'zone-1': 0.992,
+        'zone-5': 0.004,
+        'zone-7': 0.004,
+      });
+    });
   });
 
   it('pickZone', () => {

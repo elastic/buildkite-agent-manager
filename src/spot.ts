@@ -19,10 +19,15 @@ export const DEFAULT_REGION_SCORES = {
   'asia-south2': 0,
 };
 
+const DEFAULT_PREEMPTION_WINDOW_MINUTES = 60;
+// Zones with this many preemptions in the current window will get filtered out completely
+// However, if too many zones get filtered out, a failsafe will still allow the best 3 zones to be used
+const MAX_PREEMPTIONS_PER_WINDOW = 10;
+
 export async function getLoggingMetricsWithCache(
   projectId: string,
   metricType: string,
-  sinceNumberOfMinutes: number = 30
+  sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
 ): Promise<MetricsResult> {
   const cacheKey = `${metricType}-${projectId}-${sinceNumberOfMinutes}`;
   let metrics: MetricsResult;
@@ -36,7 +41,11 @@ export async function getLoggingMetricsWithCache(
   return metrics ?? globalCache.get(cacheKey);
 }
 
-export async function getLoggingMetrics(projectId: string, metricType: string, sinceNumberOfMinutes: number = 30) {
+export async function getLoggingMetrics(
+  projectId: string,
+  metricType: string,
+  sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
+) {
   const filter = `metric.type="logging.googleapis.com/user/${metricType}"`;
 
   const request = {
@@ -68,25 +77,31 @@ export async function getLoggingMetrics(projectId: string, metricType: string, s
   return results;
 }
 
-export async function getPreemptionsWithCache(projectId: string, sinceNumberOfMinutes: number = 30): Promise<MetricsResult> {
+export async function getPreemptionsWithCache(
+  projectId: string,
+  sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
+): Promise<MetricsResult> {
   logger.info('[gcp] Getting preemption metrics');
   const data = await getLoggingMetricsWithCache(projectId, 'instance-preemptions', sinceNumberOfMinutes);
   logger.info('[gcp] Finishing getting preemption metrics');
   return data;
 }
 
-export async function getPreemptions(projectId: string, sinceNumberOfMinutes: number = 30) {
+export async function getPreemptions(projectId: string, sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES) {
   return getLoggingMetrics(projectId, 'instance-preemptions', sinceNumberOfMinutes);
 }
 
-export async function getResourceExhaustionsWithCache(projectId: string, sinceNumberOfMinutes: number = 30): Promise<MetricsResult> {
+export async function getResourceExhaustionsWithCache(
+  projectId: string,
+  sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
+): Promise<MetricsResult> {
   logger.info('[gcp] Getting resource exhaustion metrics');
   const data = await getLoggingMetricsWithCache(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
   logger.info('[gcp] Finished getting resource exhaustion metrics');
   return data;
 }
 
-export async function getResourceExhaustions(projectId: string, sinceNumberOfMinutes: number = 30) {
+export async function getResourceExhaustions(projectId: string, sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES) {
   return getLoggingMetrics(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
 }
 
@@ -95,10 +110,21 @@ export function getZoneWeighting(requestedZones: string[], zoneScores: ZoneScore
   let maxScore = 0;
   const zoneWeightings: Record<string, any> = {};
 
-  // Don't use any zones that have had 5 preemptions or more in the time window
-  const zones = requestedZones.filter((zone) => {
-    return !zoneScores[zone] || zoneScores[zone] < 5;
+  let zones: string[];
+
+  // Don't use any zones that have had MAX_PREEMPTIONS_PER_WINDOW preemptions or more in the time window
+  zones = requestedZones.filter((zone) => {
+    return !zoneScores[zone] || zoneScores[zone] <= MAX_PREEMPTIONS_PER_WINDOW;
   });
+
+  // If all or too many zones get filtered out, just use the 3 with the fewest preemptions
+  if (!zones.length || (requestedZones.length > 5 && zones.length < 3)) {
+    zones = requestedZones
+      .sort((a, b) => {
+        return (zoneScores[a] ?? 0) - (zoneScores[b] ?? 0);
+      })
+      .slice(0, 3);
+  }
 
   // Only use region scores if one of the zones is an overridden one
   const shouldUseRegionScores = !!zones.find((zone) => zone.substring(0, zone.lastIndexOf('-')) in DEFAULT_REGION_SCORES);
