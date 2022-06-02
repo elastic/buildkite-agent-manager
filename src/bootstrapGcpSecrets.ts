@@ -3,6 +3,7 @@ const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const GCP_SECRET_MAPPING = {
   BUILDKITE_TOKEN: 'elastic-buildkite-manager-buildkite-token',
   BUILDKITE_AGENT_TOKEN: 'elastic-buildkite-manager-buildkite-agent-token',
+  GITHUB_TOKEN: 'kibana-buildkite-kibanamachine',
 };
 
 const getSecret = async (client, id) => {

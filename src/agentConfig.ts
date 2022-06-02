@@ -1,9 +1,14 @@
+import { Octokit } from '@octokit/rest';
+import axios from 'axios';
 import crypto from 'crypto';
 import defaultConfig from './defaultConfig';
 
 import { INSTANCE_SUFFIX_BYTES } from './gcp';
 import logger from './lib/logger';
-import axios from 'axios';
+
+const github = new Octokit({
+  auth: process.env.GITHUB_TOKEN,
+});
 
 let LAST_SUCCESSFUL_CONFIG = null;
 
@@ -185,12 +190,19 @@ export async function getConfig() {
   let remoteConfig: TopLevelConfig = null;
 
   try {
-    const url = `https://raw.githubusercontent.com/${defaultConfig.repoOwner}/${defaultConfig.repoName}/${defaultConfig.configBranch}/${
-      defaultConfig.configPath || '.ci/buildkite-agents.json'
-    }`;
+    const request = {
+      owner: defaultConfig.repoOwner,
+      repo: defaultConfig.repoName,
+      ref: defaultConfig.configBranch,
+      path: defaultConfig.configPath || '.ci/buildkite-agents.json',
+    };
 
-    logger.info(`[github] Fetching remote agent config from ${url}`);
-    remoteConfig = (await axios.get(url, { timeout: 10000 })).data;
+    logger.info(`[github] Fetching remote agent config from ${request.owner}/${request.repo}#${request.ref}:${request.path}`);
+
+    const { data } = await github.repos.getContent(request);
+    const json = Buffer.from((data as any).content, 'base64').toString();
+    remoteConfig = JSON.parse(json);
+
     LAST_SUCCESSFUL_CONFIG = remoteConfig;
   } catch (ex) {
     remoteConfig = LAST_SUCCESSFUL_CONFIG;

@@ -17,6 +17,7 @@
     "@google-cloud/compute": "^2.4.3",
     "@google-cloud/monitoring": "^2.3.5",
     "@google-cloud/secret-manager": "^3.2.0",
+    "@octokit/rest": "^18.12.0",
     "@supercharge/promise-pool": "^1.6.0",
     "axios": "^0.21.1",
     "dotenv": "^8.2.0",
