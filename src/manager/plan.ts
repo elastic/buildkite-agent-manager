@@ -1,6 +1,7 @@
 import { Agent } from '../buildkite';
 import { GcpInstance } from '../gcp';
 import { AgentConfigToCreate, ManagerContext } from './manager';
+import logger from '../lib/logger';
 
 export interface ExecutionPlan {
   agentsToStop?: Agent[];
@@ -20,6 +21,32 @@ export function isGcpInstanceOrphanedFromBuildkite(context: ManagerContext, inst
 
   // Agent is at least 10 minutes old, and isn't connected to Buildkite anymore. Consider it gone.
   return !context.buildkiteAgents.find((a) => instance.metadata.name === a.name);
+}
+
+export function isGcpInstanceSlowStarting(context: ManagerContext, instance: GcpInstance) {
+  const now = new Date().getTime();
+  const created = new Date(instance.metadata.creationTimestamp).getTime();
+
+  if (now - created < 90 * 1000 || now - created > 10 * 60 * 1000) {
+    return false;
+  }
+
+  // Agent is more than 90 seconds old, but still not connected to Buildkite
+  return !context.buildkiteAgents.find((a) => instance.metadata.name === a.name);
+}
+
+export function logSlowStartingInstances(context: ManagerContext) {
+  const instances = context.gcpInstances.filter((instance) => isGcpInstanceSlowStarting(context, instance));
+  if (instances.length) {
+    logger.info('[slow] The following instances seem to be slow to start:');
+    const now = new Date().getTime();
+
+    for (const instance of instances) {
+      const created = new Date(instance.metadata.creationTimestamp).getTime();
+      const duration = ((now - created) / 1000 / 60).toFixed(2);
+      logger.info(`[slow] ${instance.metadata.name} / ${duration}min`);
+    }
+  }
 }
 
 export function getAgentConfigsToCreate(context: ManagerContext) {
@@ -149,6 +176,9 @@ export function createPlan(context: ManagerContext) {
     agentsToStop: getStaleAgents(context), // agents attached to outdated configs, or ones that have reached their configed soft time limit
     // also, if there are too many agents of a given type, order than by name or creation and soft stop the extras
   };
+
+  // This is likely temporary while I'm debugging this issue... If not, it should get moved elsewhere
+  logSlowStartingInstances(context);
 
   return plan;
 }
