@@ -3,10 +3,16 @@ import { GcpInstance } from '../gcp';
 import { AgentConfigToCreate, ManagerContext } from './manager';
 import logger from '../lib/logger';
 
+export interface InstanceAgentPair {
+  instance: GcpInstance;
+  agent: Agent;
+}
+
 export interface ExecutionPlan {
   agentsToStop?: Agent[];
   gcp?: {
     instancesToDelete?: GcpInstance[];
+    instancesToMarkAsConnected?: InstanceAgentPair[];
     agentConfigsToCreate?: AgentConfigToCreate[];
   };
 }
@@ -27,7 +33,7 @@ export function isGcpInstanceSlowStarting(context: ManagerContext, instance: Gcp
   const now = new Date().getTime();
   const created = new Date(instance.metadata.creationTimestamp).getTime();
 
-  if (now - created < 90 * 1000 || now - created > 10 * 60 * 1000) {
+  if (instance.metadata.metadata.items.find((item) => item.key === 'buildkite-agent-id') || now - created < 90 * 1000) {
     return false;
   }
 
@@ -44,7 +50,8 @@ export function logSlowStartingInstances(context: ManagerContext) {
     for (const instance of instances) {
       const created = new Date(instance.metadata.creationTimestamp).getTime();
       const duration = ((now - created) / 1000 / 60).toFixed(2);
-      logger.info(`[slow] ${instance.metadata.name} / ${duration}min`);
+      const agentId = instance.metadata.metadata.items.find((item) => item.key === 'buildkite-agent-id');
+      logger.info(`[slow] ${instance.metadata.name} / ${agentId} / ${duration}min`);
     }
   }
 }
@@ -93,6 +100,26 @@ export function getAgentConfigsToCreate(context: ManagerContext) {
   }
 
   return toCreate;
+}
+
+export function getInstancesToMarkAsConnected(context: ManagerContext) {
+  const instances = context.gcpInstances.filter(
+    (instance) => !instance.metadata.metadata.items.find((item) => item.key === 'buildkite-agent-id')
+  );
+
+  const instancesToMark: InstanceAgentPair[] = [];
+
+  for (const instance of instances) {
+    const agent = context.buildkiteAgents.find((a) => instance.metadata.name === a.name);
+    if (agent) {
+      instancesToMark.push({
+        instance: instance,
+        agent: agent,
+      });
+    }
+  }
+
+  return instancesToMark;
 }
 
 export function getInstancesToDelete(context: ManagerContext) {
@@ -172,6 +199,7 @@ export function createPlan(context: ManagerContext) {
     gcp: {
       instancesToDelete: getInstancesToDelete(context), // deleted instances and instances past the hard-stop limit
       agentConfigsToCreate: getAgentConfigsToCreate(context),
+      instancesToMarkAsConnected: getInstancesToMarkAsConnected(context),
     },
     agentsToStop: getStaleAgents(context), // agents attached to outdated configs, or ones that have reached their configed soft time limit
     // also, if there are too many agents of a given type, order than by name or creation and soft stop the extras
@@ -199,6 +227,10 @@ export function printPlan(plan: ExecutionPlan) {
       name: agent.name,
       id: agent.uuid,
       metadata: agent.metaData,
+    })),
+    toMarkAsConnected: plan.gcp.instancesToMarkAsConnected?.map((c) => ({
+      instance: c.instance.metadata.name,
+      agent: c.agent.uuid,
     })),
   });
 }

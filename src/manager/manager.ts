@@ -1,8 +1,8 @@
 import { getConfig, GcpAgentConfiguration, AgentConfiguration } from '../agentConfig';
-import { createInstance, deleteInstance, GcpInstance, getAllAgentInstances, getImageForFamily } from '../gcp';
+import { createInstance, deleteInstance, GcpInstance, getAllAgentInstances, getImageForFamily, setMetadata } from '../gcp';
 import { Agent, AgentMetrics, Buildkite } from '../buildkite';
 import logger from '../lib/logger';
-import { createPlan, ExecutionPlan, printPlan } from './plan';
+import { createPlan, ExecutionPlan, InstanceAgentPair, printPlan } from './plan';
 import { withPromisePool } from '../lib/withPromisePool';
 import { getPreemptionsWithCache, getResourceExhaustionsWithCache, getZoneWeightingFromMetrics, MetricsResult } from '../spot';
 
@@ -126,6 +126,19 @@ export async function stopAgents(agents: Agent[]) {
   }
 }
 
+export async function markInstancesAsConnected(pairs: InstanceAgentPair[]) {
+  logger.info(`[gcp] Marking ${pairs.length} instances as connected`);
+
+  try {
+    await withPromisePool(10, pairs, async (pair: InstanceAgentPair) => {
+      await setMetadata(pair.instance, { 'buildkite-agent-id': pair.agent.uuid });
+      return true;
+    });
+  } finally {
+    logger.info('[gcp] Done marking instances as connected');
+  }
+}
+
 export async function executePlan(context: ManagerContext, plan: ExecutionPlan) {
   const promises: Promise<any>[] = [];
 
@@ -141,6 +154,10 @@ export async function executePlan(context: ManagerContext, plan: ExecutionPlan) 
 
   if (plan.agentsToStop?.length) {
     promises.push(stopAgents(plan.agentsToStop));
+  }
+
+  if (plan.gcp.instancesToMarkAsConnected?.length) {
+    promises.push(markInstancesAsConnected(plan.gcp.instancesToMarkAsConnected));
   }
 
   await Promise.all(promises);

@@ -20,7 +20,7 @@ google.options({
 // the string length of the suffix will be 2*INSTANCE_SUFFIX_BYTES
 export const INSTANCE_SUFFIX_BYTES = 8;
 
-const AGENT_MANAGER_NAME = process.env.AGENT_MANAGER_NAME || 'kibana';
+export const AGENT_MANAGER_NAME = process.env.AGENT_MANAGER_NAME || 'kibana';
 
 export type GcpInstance = {
   metadata: {
@@ -254,4 +254,14 @@ export async function getImageForFamily(projectId: string, family: string) {
   });
 
   return result.data as GcpImage;
+}
+
+export async function setMetadata(instance: GcpInstance, metadata: Record<string, string>) {
+  if (!process.env.DRY_RUN) {
+    const zone = compute.zone(instance.metadata.zone.split('/').pop());
+    const vm = zone.vm(instance.metadata.name);
+    return await vm.setMetadata(metadata);
+  } else {
+    logger.info(`[gcp] Would set metadata on ${instance.metadata.name}`, metadata);
+  }
 }
