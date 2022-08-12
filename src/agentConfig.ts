@@ -6,9 +6,7 @@ import defaultConfig from './defaultConfig';
 import { INSTANCE_SUFFIX_BYTES } from './gcp';
 import logger from './lib/logger';
 
-const github = new Octokit({
-  auth: process.env.GITHUB_TOKEN,
-});
+let github: Octokit;
 
 let LAST_SUCCESSFUL_CONFIG = null;
 
@@ -198,6 +196,12 @@ export async function getConfig() {
     };
 
     logger.info(`[github] Fetching remote agent config from ${request.owner}/${request.repo}#${request.ref}:${request.path}`);
+
+    github =
+      github ??
+      new Octokit({
+        auth: process.env.GITHUB_TOKEN,
+      });
 
     const { data } = await github.repos.getContent(request);
     const json = Buffer.from((data as any).content, 'base64').toString();
