@@ -54,6 +54,7 @@ export interface Agent {
   connectionState: string;
   createdAt: string;
   metaData: string[];
+  stoppedGracefullyAt: null | string;
 }
 
 export class Buildkite {
@@ -104,7 +105,7 @@ export class Buildkite {
       const request = gql`
         {
           organization(slug: "elastic") {
-            agents(first: 500, metaData:["agent-manager=${process.env.AGENT_MANAGER_NAME || 'kibana'}"], isRunningJob:true${nextStr}) {
+            agents(first: 500, metaData:["agent-manager=${process.env.AGENT_MANAGER_NAME || 'kibana'}"]${nextStr}) {
               count
               pageInfo {
                 endCursor
@@ -119,6 +120,7 @@ export class Buildkite {
                   uuid
                   connectionState
                   metaData
+                  stoppedGracefullyAt
                 }
               }
             }
@@ -128,7 +130,7 @@ export class Buildkite {
 
       const data = await this.graphql.request<AgentsResponse>(request);
       totalCount = totalCount ?? data.organization.agents.count;
-      agentPages.push(data.organization.agents.edges.map(({ node }) => node));
+      agentPages.push(data.organization.agents.edges.filter(({ node }) => node.connectionState === 'connected').map(({ node }) => node));
       if (!data.organization.agents.pageInfo.hasNextPage) {
         break;
       }

@@ -171,9 +171,7 @@ export function getStaleAgents(context: ManagerContext) {
   for (const agentConfig of context.config.gcp.agents) {
     const hash = agentConfig.hash();
 
-    const agentsForConfig = context.buildkiteAgents
-      .filter((agent) => agent.connectionState === 'connected')
-      .filter((agent) => agent.metaData?.includes(`queue=${agentConfig.queue}`));
+    const agentsForConfig = getMultiUseAgentsNotStopped(context).filter((agent) => agent.metaData?.includes(`queue=${agentConfig.queue}`));
 
     // Agents with stale configs
     agentsForConfig.filter((agent) => !agent.metaData?.includes(`hash=${hash}`)).forEach((agent) => agents.add(agent));
@@ -194,16 +192,44 @@ export function getStaleAgents(context: ManagerContext) {
   return [...agents];
 }
 
+export function getMultiUseAgentsNotStopped(context: ManagerContext) {
+  const agents = new Set<Agent>();
+  const agentConfigs = context.config.gcp.agents.filter((c) => !c.exitAfterOneJob);
+
+  for (const agentConfig of agentConfigs) {
+    context.buildkiteAgents
+      .filter((agent) => agent.connectionState === 'connected')
+      .filter((agent) => agent.metaData?.includes(`queue=${agentConfig.queue}`))
+      .filter((agent) => !agent.stoppedGracefullyAt)
+      .forEach((agent) => agents.add(agent));
+  }
+
+  return [...agents];
+}
+
 export function createPlan(context: ManagerContext) {
-  const plan: ExecutionPlan = {
-    gcp: {
-      instancesToDelete: getInstancesToDelete(context), // deleted instances and instances past the hard-stop limit
-      agentConfigsToCreate: getAgentConfigsToCreate(context),
-      instancesToMarkAsConnected: getInstancesToMarkAsConnected(context),
-    },
-    agentsToStop: getStaleAgents(context), // agents attached to outdated configs, or ones that have reached their configed soft time limit
-    // also, if there are too many agents of a given type, order than by name or creation and soft stop the extras
-  };
+  let plan: ExecutionPlan;
+
+  if (context.config.pauseAllAgents) {
+    plan = {
+      gcp: {
+        instancesToDelete: getInstancesToDelete(context),
+        agentConfigsToCreate: [],
+        instancesToMarkAsConnected: getInstancesToMarkAsConnected(context),
+      },
+      agentsToStop: getMultiUseAgentsNotStopped(context), // in pause all agents mode, we want all non-single-use agents to stop after their current job
+    };
+  } else {
+    plan = {
+      gcp: {
+        instancesToDelete: getInstancesToDelete(context), // deleted instances and instances past the hard-stop limit
+        agentConfigsToCreate: getAgentConfigsToCreate(context),
+        instancesToMarkAsConnected: getInstancesToMarkAsConnected(context),
+      },
+      agentsToStop: getStaleAgents(context), // agents attached to outdated configs, or ones that have reached their configed soft time limit
+      // also, if there are too many agents of a given type, order than by name or creation and soft stop the extras
+    };
+  }
 
   // This is likely temporary while I'm debugging this issue... If not, it should get moved elsewhere
   logSlowStartingInstances(context);
@@ -212,25 +238,31 @@ export function createPlan(context: ManagerContext) {
 }
 
 export function printPlan(plan: ExecutionPlan) {
-  console.log({
-    toDelete: plan.gcp.instancesToDelete?.map((i) => ({
-      name: i.metadata.name,
-      status: i.metadata.status,
-      created: i.metadata.creationTimestamp,
-    })),
-    toCreate: plan.gcp.agentConfigsToCreate?.map((c) => ({
-      queue: c.config.queue,
-      numberToCreate: c.numberToCreate,
-      totalDesired: c.totalAgentsDesired,
-    })),
-    toStop: plan.agentsToStop.map((agent) => ({
-      name: agent.name,
-      id: agent.uuid,
-      metadata: agent.metaData,
-    })),
-    toMarkAsConnected: plan.gcp.instancesToMarkAsConnected?.map((c) => ({
-      instance: c.instance.metadata.name,
-      agent: c.agent.uuid,
-    })),
-  });
+  console.log(
+    JSON.stringify(
+      {
+        toDelete: plan.gcp.instancesToDelete?.map((i) => ({
+          name: i.metadata.name,
+          status: i.metadata.status,
+          created: i.metadata.creationTimestamp,
+        })),
+        toCreate: plan.gcp.agentConfigsToCreate?.map((c) => ({
+          queue: c.config.queue,
+          numberToCreate: c.numberToCreate,
+          totalDesired: c.totalAgentsDesired,
+        })),
+        toStop: plan.agentsToStop.map((agent) => ({
+          name: agent.name,
+          id: agent.uuid,
+          metadata: agent.metaData,
+        })),
+        toMarkAsConnected: plan.gcp.instancesToMarkAsConnected?.map((c) => ({
+          instance: c.instance.metadata.name,
+          agent: c.agent.uuid,
+        })),
+      },
+      null,
+      2
+    )
+  );
 }

@@ -17,6 +17,7 @@ export type GcpTopLevelConfig = Partial<GcpAgentConfiguration> & {
 
 export type TopLevelConfig = {
   gcp: GcpTopLevelConfig;
+  pauseAllAgents?: boolean;
 };
 
 export type AgentConfiguration = {
@@ -24,6 +25,7 @@ export type AgentConfiguration = {
     project: string;
     agents: GcpAgentConfiguration[];
   };
+  pauseAllAgents?: boolean;
 };
 
 export class GcpAgentConfiguration {
@@ -229,6 +231,7 @@ export function getConfigWithAgents(config: TopLevelConfig): AgentConfiguration 
       ...config.gcp,
       agents: getGcpAgentConfigsFromTopLevelConfig(config),
     },
+    pauseAllAgents: !!config.pauseAllAgents,
   };
 }
 
