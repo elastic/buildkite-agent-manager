@@ -218,7 +218,16 @@ export async function createInstance(
     zone = agentConfig.getNextZone();
   }
 
-  const vm = compute.zone(zone).vm(`${agentConfig.name}-${crypto.randomBytes(INSTANCE_SUFFIX_BYTES).toString('hex')}`);
+  // The only reason we are adding machine family to the name is so that we can track preemptions per machine family
+  const machineFamily = agentConfig.machineType.split('-')[0];
+  let machineFamilyPrefix = '';
+  if (!agentConfig.name.startsWith(`${machineFamily}-`)) {
+    machineFamilyPrefix = `${machineFamily}-`;
+  }
+
+  const vm = compute
+    .zone(zone)
+    .vm(`${machineFamilyPrefix}${agentConfig.name}-${crypto.randomBytes(INSTANCE_SUFFIX_BYTES).toString('hex')}`);
   const config = createVmConfiguration(zone, agentConfig);
 
   if (!process.env.DRY_RUN) {
