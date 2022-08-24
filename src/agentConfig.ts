@@ -1,7 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import axios from 'axios';
 import crypto from 'crypto';
-import { readFileSync } from 'fs';
 import defaultConfig from './defaultConfig';
 
 import { INSTANCE_SUFFIX_BYTES } from './gcp';
@@ -86,16 +85,10 @@ export class GcpAgentConfiguration {
       throw Error(`GCP agent config must include 'zone' or 'zones'`);
     }
 
-    const machineFamily = config.machineType.split('-')[0];
-    let machineFamilyPrefix = '';
-    if (!config.name.startsWith(`${machineFamily}-`)) {
-      machineFamilyPrefix = `${machineFamily}-`;
-    }
-
     // 63 is max length for GCP instance names, minus a unique suffix length, minus 1 character for a hyphen
-    const maxLength = 63 - INSTANCE_SUFFIX_BYTES * 2 - 1 - machineFamilyPrefix.length;
+    const maxLength = 63 - INSTANCE_SUFFIX_BYTES * 2 - 1;
     if (config.name.length > maxLength) {
-      throw Error(`GCP agent name ${config.name} must be fewer than ${maxLength} characters.`);
+      throw Error(`GCP agent name must be fewer than ${maxLength} characters.`);
     }
 
     if (config.serviceAccount && !config.serviceAccounts) {
@@ -197,28 +190,23 @@ export async function getConfig() {
   let remoteConfig: TopLevelConfig = null;
 
   try {
-    let json = '';
-    if (process.env.USE_LOCAL_CONFIG) {
-      json = readFileSync('./agents.dev.json', 'utf8');
-    } else {
-      const request = {
-        owner: process.env.CONFIG_REPO_OWNER || defaultConfig.repoOwner,
-        repo: process.env.CONFIG_REPO_NAME || defaultConfig.repoName,
-        ref: process.env.CONFIG_BRANCH || defaultConfig.configBranch,
-        path: process.env.CONFIG_PATH || defaultConfig.configPath || '.ci/buildkite-agents.json',
-      };
+    const request = {
+      owner: defaultConfig.repoOwner,
+      repo: defaultConfig.repoName,
+      ref: defaultConfig.configBranch,
+      path: defaultConfig.configPath || '.ci/buildkite-agents.json',
+    };
 
-      logger.info(`[github] Fetching remote agent config from ${request.owner}/${request.repo}#${request.ref}:${request.path}`);
+    logger.info(`[github] Fetching remote agent config from ${request.owner}/${request.repo}#${request.ref}:${request.path}`);
 
-      github =
-        github ??
-        new Octokit({
-          auth: process.env.GITHUB_TOKEN,
-        });
+    github =
+      github ??
+      new Octokit({
+        auth: process.env.GITHUB_TOKEN,
+      });
 
-      const { data } = await github.repos.getContent(request);
-      json = Buffer.from((data as any).content, 'base64').toString();
-    }
+    const { data } = await github.repos.getContent(request);
+    const json = Buffer.from((data as any).content, 'base64').toString();
     remoteConfig = JSON.parse(json);
 
     LAST_SUCCESSFUL_CONFIG = remoteConfig;
