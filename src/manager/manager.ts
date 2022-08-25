@@ -4,7 +4,7 @@ import { Agent, AgentMetrics, Buildkite } from '../buildkite';
 import logger from '../lib/logger';
 import { createPlan, ExecutionPlan, InstanceAgentPair, printPlan } from './plan';
 import { withPromisePool } from '../lib/withPromisePool';
-import { getPreemptionsWithCache, getResourceExhaustionsWithCache, getZoneWeightingFromMetrics, MetricsResult } from '../spot';
+import { getPreemptionsWithCache, getResourceExhaustionsWithCache, getZoneWeightingFromMetrics, MetricsResults } from '../spot';
 
 let buildkite: Buildkite;
 
@@ -13,8 +13,8 @@ export interface ManagerContext {
   buildkiteAgents: Agent[];
   buildkiteQueues: Record<string, AgentMetrics>;
   gcpInstances: GcpInstance[];
-  preemptions?: MetricsResult;
-  resourceExhaustions?: MetricsResult;
+  preemptions?: MetricsResults;
+  resourceExhaustions?: MetricsResults;
 }
 
 export interface AgentConfigToCreate {
@@ -83,7 +83,11 @@ export async function getAllImages(projectId: string, configs: GcpAgentConfigura
 export async function createInstances(context: ManagerContext, toCreate: AgentConfigToCreate) {
   logger.info(`[gcp] Creating ${toCreate.numberToCreate} instances of ${toCreate.config.queue}`);
   if (toCreate.config.spot) {
-    const weighting = getZoneWeightingFromMetrics(toCreate.config.zones, context.preemptions, context.resourceExhaustions);
+    const weighting = getZoneWeightingFromMetrics(
+      toCreate.config.zones,
+      context.preemptions.resultsByMachineFamily[toCreate.config.machineType.substring(0, toCreate.config.machineType.indexOf('-'))],
+      context.resourceExhaustions.results
+    );
     const weightingString = Object.keys(weighting)
       .map((k) => `[${k}:${weighting[k]}]`)
       .join(', ');
@@ -92,7 +96,11 @@ export async function createInstances(context: ManagerContext, toCreate: AgentCo
 
   try {
     await withPromisePool(25, new Array(toCreate.numberToCreate), async () => {
-      await createInstance(toCreate.config, context.preemptions, context.resourceExhaustions);
+      await createInstance(
+        toCreate.config,
+        context.preemptions.resultsByMachineFamily[toCreate.config.machineType.substring(0, toCreate.config.machineType.indexOf('-'))],
+        context.resourceExhaustions.results
+      );
       return true;
     });
   } finally {
@@ -173,8 +181,8 @@ export async function run() {
     getAllAgentInstances(config.gcp),
     getAllQueues(config.gcp.agents),
     getAllImages(config.gcp.project, config.gcp.agents),
-    getPreemptionsWithCache(config.gcp.project),
-    getResourceExhaustionsWithCache(config.gcp.project),
+    getPreemptionsWithCache(config.gcp.agents, config.gcp.project),
+    getResourceExhaustionsWithCache(config.gcp.agents, config.gcp.project),
   ]);
   const [agents, instances, queues, imagesFromFamilies, preemptions, resourceExhaustions] = await withTimeout<Unwrap<typeof promise>>(
     60,

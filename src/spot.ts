@@ -1,4 +1,5 @@
 import monitoring from '@google-cloud/monitoring';
+import { GcpAgentConfiguration } from './agentConfig';
 
 import { globalCache } from './cache';
 import logger from './lib/logger';
@@ -8,6 +9,10 @@ const client = new monitoring.MetricServiceClient();
 export type MetricsResult = Record<string, number>;
 export type ZoneScores = Record<string, number>;
 export type ZoneWeighting = Record<string, number>;
+export type MetricsResults = {
+  results: MetricsResult;
+  resultsByMachineFamily: Record<string, MetricsResult>;
+};
 
 // The listed regions here are much cheaper than all of the other regions
 // So let's weight all other regions so that we use them less often
@@ -25,14 +30,15 @@ const DEFAULT_PREEMPTION_WINDOW_MINUTES = 60;
 const MAX_PREEMPTIONS_PER_WINDOW = 10;
 
 export async function getLoggingMetricsWithCache(
+  gcpAgentConfigs: GcpAgentConfiguration[],
   projectId: string,
   metricType: string,
   sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
-): Promise<MetricsResult> {
+): Promise<MetricsResults> {
   const cacheKey = `${metricType}-${projectId}-${sinceNumberOfMinutes}`;
-  let metrics: MetricsResult;
+  let metrics: MetricsResults;
   try {
-    metrics = await getLoggingMetrics(projectId, metricType, sinceNumberOfMinutes);
+    metrics = await getLoggingMetrics(gcpAgentConfigs, projectId, metricType, sinceNumberOfMinutes);
     globalCache.set(cacheKey, metrics, 60 * 10);
   } catch (ex: any) {
     console.error(ex.toString());
@@ -42,10 +48,11 @@ export async function getLoggingMetricsWithCache(
 }
 
 export async function getLoggingMetrics(
+  gcpAgentConfigs: GcpAgentConfiguration[],
   projectId: string,
   metricType: string,
   sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
-) {
+): Promise<MetricsResults> {
   const filter = `metric.type="logging.googleapis.com/user/${metricType}"`;
 
   const request = {
@@ -63,46 +70,67 @@ export async function getLoggingMetrics(
 
   const [timeSeries] = await client.listTimeSeries(request);
   const results: MetricsResult = {};
+  const resultsByMachineFamily: Record<string, MetricsResult> = {};
 
   timeSeries.forEach((data) => {
     const zone = data.resource.labels.zone;
 
-    // TODO should we separate things out by CPU type?
-    // const instanceName = data.metric.labels.resourceName.substring(data.metric.labels.resourceName.lastIndexOf('/') + 1);
-    // can get cpu type and count from agent config data based on basename
     results[zone] = results[zone] ?? 0;
     results[zone] += 1;
+
+    const instanceName = data.metric.labels.resourceName.substring(data.metric.labels.resourceName.lastIndexOf('/') + 1);
+    const baseName = instanceName.substring(0, instanceName.lastIndexOf('-'));
+    const config = gcpAgentConfigs.find((c) => c.name === baseName);
+    if (config) {
+      const cpuType = config.machineType.substring(0, config.machineType.indexOf('-'));
+      resultsByMachineFamily[cpuType] = resultsByMachineFamily[cpuType] ?? {};
+      resultsByMachineFamily[cpuType][zone] = resultsByMachineFamily[cpuType][zone] ?? 0;
+      resultsByMachineFamily[cpuType][zone] += 1;
+    }
   });
 
-  return results;
+  return {
+    results,
+    resultsByMachineFamily,
+  };
 }
 
 export async function getPreemptionsWithCache(
+  gcpAgentConfigs: GcpAgentConfiguration[],
   projectId: string,
   sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
-): Promise<MetricsResult> {
+): Promise<MetricsResults> {
   logger.info('[gcp] Getting preemption metrics');
-  const data = await getLoggingMetricsWithCache(projectId, 'instance-preemptions', sinceNumberOfMinutes);
+  const data = await getLoggingMetricsWithCache(gcpAgentConfigs, projectId, 'instance-preemptions', sinceNumberOfMinutes);
   logger.info('[gcp] Finishing getting preemption metrics');
   return data;
 }
 
-export async function getPreemptions(projectId: string, sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES) {
-  return getLoggingMetrics(projectId, 'instance-preemptions', sinceNumberOfMinutes);
+export async function getPreemptions(
+  gcpAgentConfigs: GcpAgentConfiguration[],
+  projectId: string,
+  sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
+) {
+  return getLoggingMetrics(gcpAgentConfigs, projectId, 'instance-preemptions', sinceNumberOfMinutes);
 }
 
 export async function getResourceExhaustionsWithCache(
+  gcpAgentConfigs: GcpAgentConfiguration[],
   projectId: string,
   sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
-): Promise<MetricsResult> {
+): Promise<MetricsResults> {
   logger.info('[gcp] Getting resource exhaustion metrics');
-  const data = await getLoggingMetricsWithCache(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
+  const data = await getLoggingMetricsWithCache(gcpAgentConfigs, projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
   logger.info('[gcp] Finished getting resource exhaustion metrics');
   return data;
 }
 
-export async function getResourceExhaustions(projectId: string, sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES) {
-  return getLoggingMetrics(projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
+export async function getResourceExhaustions(
+  gcpAgentConfigs: GcpAgentConfiguration[],
+  projectId: string,
+  sinceNumberOfMinutes: number = DEFAULT_PREEMPTION_WINDOW_MINUTES
+) {
+  return getLoggingMetrics(gcpAgentConfigs, projectId, 'instance-resource-exhausted', sinceNumberOfMinutes);
 }
 
 // This is a pretty confusing algorithm to follow... look at the tests for some example numbers which should help show what it's doing
