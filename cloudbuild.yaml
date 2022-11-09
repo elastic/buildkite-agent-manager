@@ -1,14 +1,14 @@
 steps:
-  - name: node:14
-    id: install
-    entrypoint: npm
-    args: ['install']
-    waitFor: ['-']
+  # - name: node:14
+  #   id: install
+  #   entrypoint: npm
+  #   args: ['install']
+  #   waitFor: ['-']
 
-  - name: node:14
-    entrypoint: npm
-    args: ['test']
-    waitFor: ['install']
+  # - name: node:14
+  #   entrypoint: npm
+  #   args: ['test']
+  #   waitFor: ['install']
 
   - name: 'gcr.io/kaniko-project/executor:v1.6.0'
     args: ['--destination=gcr.io/$PROJECT_ID/elastic-buildkite-manager:$COMMIT_SHA', '--cache=true']
