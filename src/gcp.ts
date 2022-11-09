@@ -100,6 +100,7 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
           sourceImage: `projects/${agentConfig.project}/global/images/${agentConfig.image}`,
           diskType: `projects/${agentConfig.project}/zones/${zone}/diskTypes/${agentConfig.diskType || 'pd-ssd'}`,
           diskSizeGb: agentConfig.diskSizeGb || '100', // TODO replace default with default from source image? need to pull image metadata first if so
+          labels: agentConfig.labels ?? {},
         },
       },
     ],
@@ -122,6 +123,7 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
       'buildkite-agent': 'true',
       'buildkite-agent-name': agentConfig.name,
       'agent-manager': AGENT_MANAGER_NAME,
+      ...(agentConfig.labels ?? {}),
     },
     metadata: {
       items: [
@@ -173,6 +175,7 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
         type: 'SCRATCH',
         initializeParams: {
           diskType: `zones/${zone}/diskTypes/local-ssd`,
+          labels: agentConfig.labels ?? {},
         },
         autoDelete: true,
         interface: 'NVME',

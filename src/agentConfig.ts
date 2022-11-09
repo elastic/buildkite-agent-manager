@@ -52,6 +52,7 @@ export class GcpAgentConfiguration {
   localSsds?: number;
   startupScript?: string;
   tags?: string[];
+  labels?: Record<string, string>;
   metadata?: Record<string, string>;
   buildPath?: string;
 
@@ -129,6 +130,7 @@ export class GcpAgentConfiguration {
       'localSsds',
       'startupScript',
       'tags',
+      'labels',
       'metadata',
       'idleTimeoutSecs',
       'idleTimeoutMins',
