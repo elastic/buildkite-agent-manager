@@ -175,7 +175,6 @@ export function createVmConfiguration(zone: string, agentConfig: GcpAgentConfigu
         type: 'SCRATCH',
         initializeParams: {
           diskType: `zones/${zone}/diskTypes/local-ssd`,
-          labels: agentConfig.labels ?? {},
         },
         autoDelete: true,
         interface: 'NVME',
